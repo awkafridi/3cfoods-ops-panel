@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3C Foods — Executive Ops Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="dark"]{
+    --bg:#191b19; --surface:#232622; --surface2:#2c2f29; --line:#3c4038;
+    --accent:#e8a23a; --accent-soft:#f0b055; --accent-dim:#8c6321; --pass:#5fa776; --fail:#c1483b;
+    --text:#ede9e1; --text-muted:#9b9c93;
+    --shadow-sm:0 1px 2px rgba(0,0,0,0.3); --shadow-md:0 4px 16px rgba(0,0,0,0.35); --shadow-lg:0 12px 32px rgba(0,0,0,0.45);
+    --scheme:dark;
+  }
+  [data-theme="light"]{
+    --bg:#f3f0e8; --surface:#ffffff; --surface2:#f6f3ec; --line:#e2ddce;
+    --accent:#c9791b; --accent-soft:#e08b28; --accent-dim:#e9c07e; --pass:#2f7d4c; --fail:#a63326;
+    --text:#242621; --text-muted:#726f63;
+    --shadow-sm:0 1px 2px rgba(30,25,10,0.06); --shadow-md:0 4px 16px rgba(30,25,10,0.08); --shadow-lg:0 16px 40px rgba(30,25,10,0.12);
+    --scheme:light;
+  }
+  *{box-sizing:border-box;}
+  html{color-scheme:var(--scheme);}
+  body{background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; transition:background .25s ease, color .25s ease;}
+  .font-display{font-family:'Space Grotesk',sans-serif;}
+  .font-mono{font-family:'IBM Plex Mono',monospace;}
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-track{background:var(--surface);}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-sm); transition:background .25s ease, border-color .25s ease, box-shadow .2s ease, transform .15s ease;}
+  .card.lift:hover{box-shadow:var(--shadow-md); transform:translateY(-1px);}
+  .badge-pass{background:rgba(95,167,118,0.15); color:var(--pass); border:1px solid rgba(95,167,118,0.35);}
+  .badge-fail{background:rgba(193,72,59,0.15); color:var(--fail); border:1px solid rgba(193,72,59,0.35);}
+  .badge-warn{background:rgba(232,162,58,0.15); color:var(--accent); border:1px solid rgba(232,162,58,0.35);}
+  .btn-accent{background:linear-gradient(155deg, var(--accent-soft), var(--accent)); color:#1a1c1a; box-shadow:var(--shadow-sm); transition:filter .15s ease, transform .1s ease, box-shadow .15s ease;}
+  .btn-accent:hover{filter:brightness(1.06); box-shadow:var(--shadow-md);}
+  .btn-accent:active{transform:translateY(1px);}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--text); transition:border-color .15s ease, color .15s ease, background .15s ease;}
+  .btn-ghost:hover{border-color:var(--accent); color:var(--accent); background:rgba(232,162,58,0.06);}
+  .input-dark{background:var(--surface2); border:1px solid var(--line); color:var(--text); transition:border-color .15s ease, box-shadow .15s ease;}
+  .input-dark:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent);}
+  .nav-item{color:var(--text-muted); border-left:3px solid transparent; transition:color .15s ease, background .15s ease, border-color .15s ease;}
+  .nav-item:hover{color:var(--text); background:var(--surface2);}
+  .nav-item.active{color:var(--accent); border-left-color:var(--accent); background:var(--surface2);}
+  table.data-table th{color:var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--line);}
+  table.data-table td{border-bottom:1px solid var(--line); font-size:13.5px;}
+  table.data-table tr{transition:background .1s ease;}
+  table.data-table tr:hover td{background:var(--surface2);}
+  .pin-dot{width:14px; height:14px; border-radius:50%; border:2px solid var(--line); transition:background .15s ease, border-color .15s ease, transform .15s ease;}
+  .pin-dot.filled{background:var(--accent); border-color:var(--accent); transform:scale(1.1);}
+  .badge-key{background:linear-gradient(160deg, var(--surface2), var(--surface)); border:1px solid var(--line); box-shadow:var(--shadow-sm);}
+  @keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(232,162,58,0.35);}50%{box-shadow:0 0 0 6px rgba(232,162,58,0);}}
+  .glow{animation:pulse-glow 2.4s infinite;}
+  .modal-backdrop{background:rgba(10,11,10,0.6); backdrop-filter:blur(3px);}
+  [data-theme="light"] .modal-backdrop{background:rgba(60,55,40,0.35);}
+  /* Tailwind's CDN build doesn't guarantee "hidden" overrides "flex" when both are
+     on the same element (injection order isn't stable) — this class always wins. */
+  .force-hidden{display:none !important;}
+  @keyframes fade-in-up{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .fade-in{animation:fade-in-up .28s ease both;}
+  .accent-bar{width:3px; border-radius:2px; align-self:stretch;}
+  .theme-toggle{width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--surface2); border:1px solid var(--line); transition:border-color .15s ease, transform .15s ease;}
+  .theme-toggle:hover{border-color:var(--accent); transform:rotate(12deg);}
+
+  /* =============================================================
+     SELF-CONTAINED UTILITY LAYER
+     Replaces the Tailwind CDN script (which requires a live network
+     fetch to render correctly, and fails silently/ungracefully if
+     blocked). Every class below is plain CSS, so this file renders
+     identically whether the browser is online or not.
+  ============================================================= */
+  *,*::before,*::after{margin:0; padding:0;}
+  button{font:inherit; cursor:pointer;}
+  input,select{font:inherit;}
+  a{color:inherit;}
+  .fixed{position:fixed;} .inset-0{top:0; right:0; bottom:0; left:0;}
+  .flex{display:flex;} .flex-1{flex:1 1 0%;} .flex-col{flex-direction:column;} .flex-wrap{flex-wrap:wrap;}
+  .grid{display:grid;} .grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr));}
+  .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));} .grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .items-center{align-items:center;} .items-end{align-items:flex-end;}
+  .justify-between{justify-content:space-between;} .justify-center{justify-content:center;}
+  .block{display:block;} .inline-block{display:inline-block;} .hidden{display:none;}
+  .min-h-screen{min-height:100vh;} .min-w-0{min-width:0;} .shrink-0{flex-shrink:0;}
+  .overflow-x-auto{overflow-x:auto;} .overflow-y-auto{overflow-y:auto;}
+  .whitespace-nowrap{white-space:nowrap;} .text-center{text-align:center;} .text-left{text-align:left;}
+  .gap-2{gap:0.5rem;} .gap-3{gap:0.75rem;} .gap-4{gap:1rem;}
+  .space-y-2>*+*{margin-top:0.5rem;}
+  .mb-0\.5{margin-bottom:0.125rem;} .mb-1{margin-bottom:0.25rem;} .mb-2{margin-bottom:0.5rem;}
+  .mb-3{margin-bottom:0.75rem;} .mb-4{margin-bottom:1rem;} .mb-6{margin-bottom:1.5rem;}
+  .mt-2{margin-top:0.5rem;} .mt-4{margin-top:1rem;} .ml-2{margin-left:0.5rem;} .mr-1{margin-right:0.25rem;}
+  .mx-4{margin-left:1rem; margin-right:1rem;}
+  .p-3{padding:0.75rem;} .p-4{padding:1rem;} .p-5{padding:1.25rem;} .p-6{padding:1.5rem;}
+  .pr-1{padding-right:0.25rem;} .pr-4{padding-right:1rem;} .pt-4{padding-top:1rem;}
+  .px-2{padding-left:0.5rem; padding-right:0.5rem;} .px-3{padding-left:0.75rem; padding-right:0.75rem;}
+  .px-4{padding-left:1rem; padding-right:1rem;} .px-6{padding-left:1.5rem; padding-right:1.5rem;}
+  .py-0\.5{padding-top:0.125rem; padding-bottom:0.125rem;} .py-1{padding-top:0.25rem; padding-bottom:0.25rem;}
+  .py-1\.5{padding-top:0.375rem; padding-bottom:0.375rem;} .py-2{padding-top:0.5rem; padding-bottom:0.5rem;}
+  .py-3{padding-top:0.75rem; padding-bottom:0.75rem;}
+  .h-2{height:0.5rem;} .h-8{height:2rem;} .h-9{height:2.25rem;} .h-16{height:4rem;}
+  .w-2{width:0.5rem;} .w-8{width:2rem;} .w-9{width:2.25rem;} .w-60{width:15rem;} .w-full{width:100%;}
+  .max-h-80{max-height:20rem;} .max-w-sm{max-width:24rem;} .max-w-md{max-width:28rem;}
+  .max-w-lg{max-width:32rem;} .max-w-2xl{max-width:42rem;}
+  .z-40{z-index:40;} .z-50{z-index:50;}
+  .font-bold{font-weight:700;} .font-medium{font-weight:500;} .font-semibold{font-weight:600;}
+  .text-xs{font-size:0.75rem;} .text-sm{font-size:0.875rem;} .text-lg{font-size:1.125rem;} .text-xl{font-size:1.25rem;}
+  .uppercase{text-transform:uppercase;} .tracking-wide{letter-spacing:0.025em;} .leading-tight{line-height:1.25;}
+  .underline{text-decoration:underline;}
+  .rounded{border-radius:0.375rem;} .rounded-full{border-radius:9999px;}
+  .border-t{border-top:1px solid var(--line);} .border-b{border-bottom:1px solid var(--line);} .border-r{border-right:1px solid var(--line);}
+  @media (min-width:768px){ .md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr));} }
+  @media (min-width:1024px){ .lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .border-\[var\(--line\)\]{border-color:var(--line);}
+  .text-\[10px\]{font-size:10px;}
+  .text-\[var\(--fail\)\]{color:var(--fail);}
+  .text-\[var\(--text-muted\)\]{color:var(--text-muted);}
+  .hover\:text-\[var\(--accent\)\]:hover{color:var(--accent);}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ============================================================ -->
+<!-- SETUP GATE: ask for the deployed Apps Script Web App URL     -->
+<!-- ============================================================ -->
+<div id="setupGate" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop force-hidden">
+  <div class="card w-full max-w-md mx-4 p-6">
+    <div class="flex items-center justify-between mb-1">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded badge-key flex items-center justify-center font-display font-bold text-sm" style="color:var(--accent)">3C</div>
+        <h1 class="font-display text-lg font-semibold">Connect your backend</h1>
+      </div>
+      <button class="theme-toggle standalone-theme-toggle" title="Toggle light / dark"><span class="theme-icon-standalone">🌙</span></button>
+    </div>
+    <p class="text-sm text-[var(--text-muted)] mb-4">Paste the deployed Google Apps Script Web App URL (ends in <span class="font-mono">/exec</span>). This is stored only in this browser.</p>
+    <input id="setupUrlInput" type="text" placeholder="https://script.google.com/macros/s/.../exec"
+      class="input-dark w-full rounded px-3 py-2 text-sm font-mono mb-3" />
+    <div id="setupError" class="text-sm text-[var(--fail)] mb-3 hidden"></div>
+    <button id="setupConnectBtn" class="btn-accent w-full rounded py-2 font-medium text-sm">Test connection &amp; continue</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- LOGIN / EXECUTIVE SWITCHER                                    -->
+<!-- ============================================================ -->
+<div id="loginScreen" class="fixed inset-0 z-40 flex items-center justify-center force-hidden">
+  <div class="card w-full max-w-sm mx-4 p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded badge-key flex items-center justify-center font-display font-bold" style="color:var(--accent)">3C</div>
+        <div>
+          <div class="font-display font-semibold leading-tight">3C Foods</div>
+          <div class="text-xs text-[var(--text-muted)] leading-tight">Executive Ops Panel</div>
+        </div>
+      </div>
+      <button class="theme-toggle standalone-theme-toggle" title="Toggle light / dark"><span class="theme-icon-standalone">🌙</span></button>
+    </div>
+
+    <label class="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1 block">Badge</label>
+    <select id="loginUserSelect" class="input-dark w-full rounded px-3 py-2 text-sm mb-4"></select>
+
+    <div id="loginPinSection">
+      <label class="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-2 block">PIN</label>
+      <div id="pinDots" class="flex gap-2 mb-4 justify-center"></div>
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <!-- numeric keypad injected by JS -->
+      </div>
+      <button id="loginSubmitBtn" class="btn-accent w-full rounded py-2 text-sm font-medium mb-2">Log In</button>
+      <div id="loginError" class="text-sm text-[var(--fail)] mb-2 text-center hidden"></div>
+      <button id="loginClearBtn" class="btn-ghost w-full rounded py-2 text-xs">Clear PIN</button>
+    </div>
+
+    <!-- Shown instead of the PIN pad when the Users sheet is empty -->
+    <div id="bootstrapSection" class="hidden">
+      <p class="text-xs text-[var(--text-muted)] mb-3">No badges exist yet in your Users sheet. Create your first Super Admin below — this becomes your login going forward.</p>
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Name</label>
+      <input id="bootstrapName" class="input-dark w-full rounded px-3 py-2 text-sm mb-3" placeholder="e.g. Wahab" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Choose a PIN (any length)</label>
+      <input id="bootstrapPin" type="password" inputmode="numeric" class="input-dark w-full rounded px-3 py-2 text-sm mb-3 font-mono" placeholder="e.g. 1234" />
+      <div id="bootstrapError" class="text-sm text-[var(--fail)] mb-2 hidden"></div>
+      <button id="bootstrapCreateBtn" class="btn-accent w-full rounded py-2 text-sm font-medium">Create Super Admin &amp; continue</button>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-[var(--line)] text-xs text-[var(--text-muted)]">
+      No badge yet? Ask an existing Super Admin to create your Users record from the panel, or
+      <button id="setupReopenBtn" class="underline hover:text-[var(--accent)]">reconnect backend</button>.
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MAIN APP SHELL                                                -->
+<!-- ============================================================ -->
+<div id="appShell" class="force-hidden min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-60 shrink-0 border-r border-[var(--line)] flex flex-col" style="background:var(--surface)">
+    <div class="p-4 flex items-center gap-2 border-b border-[var(--line)]">
+      <div class="w-8 h-8 rounded badge-key flex items-center justify-center font-display font-bold text-sm" style="color:var(--accent)">3C</div>
+      <div>
+        <div class="font-display font-semibold text-sm leading-tight">3C Foods</div>
+        <div class="text-[10px] text-[var(--text-muted)] leading-tight">Central Ops</div>
+      </div>
+    </div>
+    <nav id="sideNav" class="flex-1 overflow-y-auto py-2"></nav>
+    <div class="p-3 border-t border-[var(--line)]">
+      <button id="apiSettingsBtn" class="btn-ghost w-full rounded py-1.5 text-xs">⚙ Backend settings</button>
+    </div>
+  </aside>
+
+  <!-- Main column -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Top bar: Executive Switcher -->
+    <header class="h-16 border-b border-[var(--line)] flex items-center justify-between px-6 shrink-0" style="background:var(--surface)">
+      <h2 id="pageTitle" class="font-display text-lg font-semibold"></h2>
+      <div class="flex items-center gap-3">
+        <span id="campusScopeBadge" class="hidden text-xs font-mono px-2 py-1 rounded badge-warn"></span>
+        <button id="themeToggleBtn" class="theme-toggle" title="Toggle light / dark">
+          <span id="themeIcon">🌙</span>
+        </button>
+        <button id="execBadgeBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-full badge-key glow">
+          <span class="w-2 h-2 rounded-full" style="background:var(--pass)"></span>
+          <span id="execName" class="font-mono text-sm"></span>
+          <span id="execRole" class="text-[10px] text-[var(--text-muted)] uppercase tracking-wide"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable content -->
+    <main id="mainContent" class="flex-1 overflow-y-auto p-6"></main>
+  </div>
+</div>
+
+<script>
+/* =================================================================
+   CONFIG & CONSTANTS
+================================================================= */
+const LS_KEYS = { API_URL: "3cfoods_api_url", SESSION: "3cfoods_session", THEME: "3cfoods_theme" };
+const POS_VARIANCE_THRESHOLD = 200;
+const COLD_CHAIN_MAX_TEMP_C = 4;
+
+// Mirrors the backend SHEET_SCHEMA — column order matters for display, not for the API itself.
+const TABLES = {
+  Campuses:   { label: "Campuses", mode: "generic", idField: "campus_id",
+    columns: ["campus_id","campus_name","grade_tier","cluster","enrollment","monthly_rent","supervisor_id"] },
+  MenuItems:  { label: "Menu Items", mode: "generic", idField: "item_id",
+    columns: ["item_id","item_name","category","portion_grams","retail_price","recipe_id"] },
+  Recipes:    { label: "Recipes", mode: "generic", idField: "recipe_id",
+    columns: ["recipe_id","item_id","raw_material_id","qty_per_unit"] },
+  RawMaterials:{ label: "Raw Materials", mode: "generic", idField: "raw_material_id",
+    columns: ["raw_material_id","material_name","approved_brand","unit","reorder_threshold","current_stock_central"] },
+  InventoryLedger:{ label: "Inventory Ledger", mode: "readonly", idField: "ledger_id",
+    columns: ["ledger_id","raw_material_id","location","batch_qty","batch_date_in","expiry_date","movement_type","qty_delta"] },
+  ColdChainLog:{ label: "Cold-Chain Log", mode: "generic", idField: "log_id",
+    columns: ["log_id","dispatch_date","vehicle_temp_c","pass_fail","recorded_by"], autoFields:["pass_fail"] },
+  Sales:      { label: "Sales", mode: "readonly", idField: "sale_id",
+    columns: ["sale_id","campus_id","item_id","qty","unit_price","sale_datetime","grade_tier"] },
+  POSAudit:   { label: "POS Audit", mode: "readonly", idField: "audit_id",
+    columns: ["audit_id","campus_id","week_ending","pos_reported_total","cash_deposited_total","variance","status","verified_by","payout_unlocked"] },
+  Expenses:   { label: "Expenses", mode: "generic", idField: "expense_id",
+    columns: ["expense_id","category","campus_id","amount","date"] },
+  HygieneChecklist:{ label: "Hygiene Checklist", mode: "generic", idField: "checklist_id",
+    columns: ["checklist_id","campus_id","date","uniform_pass","oil_change_pass","sanitation_pass","overall_status","submitted_by"], autoFields:["overall_status"] },
+  Attendance: { label: "Attendance", mode: "generic", idField: "attendance_id",
+    columns: ["attendance_id","employee_id","campus_id","date","status"] },
+  WastageLog: { label: "Wastage Log", mode: "readonly", idField: "wastage_id",
+    columns: ["wastage_id","date","campus_id","item_id","qty_wasted","reason"] },
+  VendorInvoices:{ label: "Vendor Ledger", mode: "generic", idField: "invoice_id",
+    columns: ["invoice_id","vendor_name","invoice_no","amount","due_date","status"] },
+  SchoolCalendar:{ label: "School Calendar", mode: "generic", idField: "calendar_id",
+    columns: ["calendar_id","campus_id","date","day_status","set_by"] },
+  Users:      { label: "Users", mode: "generic", idField: "user_id",
+    columns: ["user_id","name","role","campus_id","active"] },
+  ActivityLog:{ label: "Activity Log", mode: "readonly", idField: "log_id",
+    columns: ["log_id","timestamp","user_name","action_type","details"] }
+};
+
+const EXEC_ROLE = "SuperAdmin";
+
+const NAV_GROUPS_ADMIN = [
+  { title: "Overview", items: [ ["dashboard","Dashboard"], ["posaudit","POS Audit Board"] ] },
+  { title: "Operations", items: [ ["dispatch","Morning Dispatch"], ["wastage","Log Wastage"] ] },
+  { title: "Data", items: [
+      ["Campuses","Campuses"], ["MenuItems","Menu Items"], ["Recipes","Recipes"],
+      ["RawMaterials","Raw Materials"], ["InventoryLedger","Inventory Ledger"], ["ColdChainLog","Cold-Chain Log"],
+      ["Sales","Sales"], ["Expenses","Expenses"], ["HygieneChecklist","Hygiene Checklist"],
+      ["Attendance","Attendance"], ["WastageLog","Wastage Log"], ["VendorInvoices","Vendor Ledger"],
+      ["SchoolCalendar","School Calendar"], ["Users","Users"], ["ActivityLog","Activity Log"]
+  ]}
+];
+
+// A campus-badge login only ever sees and touches its own campus — enforced
+// server-side too, this is just the matching (smaller) menu for that role.
+const NAV_GROUPS_CAMPUS = [
+  { title: "Overview", items: [ ["dashboard","Dashboard"] ] },
+  { title: "Daily Ops", items: [ ["sale","Log a Sale"], ["posSubmit","Submit POS Audit"], ["wastage","Log Wastage"] ] },
+  { title: "My Campus Data", items: [
+      ["MenuItems","Menu Items"], ["RawMaterials","Raw Materials"], ["Sales","My Sales"],
+      ["Attendance","Attendance"], ["HygieneChecklist","Hygiene Checklist"],
+      ["Expenses","Expenses"], ["SchoolCalendar","School Calendar"]
+  ]}
+];
+
+function currentNavGroups() {
+  return (state.session && state.session.role === EXEC_ROLE) ? NAV_GROUPS_ADMIN : NAV_GROUPS_CAMPUS;
+}
+
+/* =================================================================
+   STATE
+================================================================= */
+const state = {
+  apiUrl: localStorage.getItem(LS_KEYS.API_URL) || "",
+  session: JSON.parse(localStorage.getItem(LS_KEYS.SESSION) || "null"),
+  activeModule: "dashboard",
+  pin: "",
+  usersCache: []
+};
+
+/* =================================================================
+   API HELPER
+================================================================= */
+async function api(action, params = {}, method = "GET") {
+  // Every call automatically carries the logged-in user's ID — this is what
+  // lets the backend enforce per-campus authorization without every single
+  // render function having to remember to pass it manually.
+  const fullParams = Object.assign({}, params);
+  if (state.session && state.session.user_id && fullParams.requesting_user_id === undefined) {
+    fullParams.requesting_user_id = state.session.user_id;
+  }
+
+  const url = new URL(state.apiUrl);
+  if (method === "GET") {
+    url.searchParams.set("action", action);
+    Object.keys(fullParams).forEach(k => url.searchParams.set(k, fullParams[k]));
+    const res = await fetch(url.toString());
+    return res.json();
+  } else {
+    const res = await fetch(state.apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, ...fullParams })
+    });
+    return res.json();
+  }
+}
+
+/* =================================================================
+   SETUP GATE
+================================================================= */
+const $ = (sel) => document.querySelector(sel);
+
+async function tryConnect(url) {
+  state.apiUrl = url;
+  const result = await api("getSpreadsheetUrl");
+  if (result && result.success) {
+    localStorage.setItem(LS_KEYS.API_URL, url);
+    return true;
+  }
+  return false;
+}
+
+$("#setupConnectBtn").addEventListener("click", async () => {
+  const url = $("#setupUrlInput").value.trim();
+  $("#setupError").classList.add("hidden");
+  if (!url.includes("script.google.com")) {
+    $("#setupError").textContent = "That doesn't look like an Apps Script web app URL.";
+    $("#setupError").classList.remove("hidden");
+    return;
+  }
+  $("#setupConnectBtn").textContent = "Connecting…";
+  try {
+    const ok = await tryConnect(url);
+    if (ok) {
+      $("#setupGate").classList.add("force-hidden");
+      boot();
+    } else {
+      $("#setupError").textContent = "Connected, but the backend returned an error. Check the URL and that it's deployed with access set to Anyone.";
+      $("#setupError").classList.remove("hidden");
+    }
+  } catch (e) {
+    $("#setupError").textContent = "Couldn't reach that URL. Double-check it's correct and deployed.";
+    $("#setupError").classList.remove("hidden");
+  }
+  $("#setupConnectBtn").textContent = "Test connection & continue";
+});
+
+$("#setupReopenBtn").addEventListener("click", () => {
+  $("#loginScreen").classList.add("force-hidden");
+  $("#setupUrlInput").value = state.apiUrl;
+  $("#setupGate").classList.remove("force-hidden");
+});
+$("#apiSettingsBtn").addEventListener("click", () => {
+  $("#appShell").classList.add("force-hidden");
+  $("#setupUrlInput").value = state.apiUrl;
+  $("#setupGate").classList.remove("force-hidden");
+});
+
+/* =================================================================
+   LOGIN / EXECUTIVE SWITCHER (PIN pad)
+================================================================= */
+function renderPinDots() {
+  const el = $("#pinDots");
+  el.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const d = document.createElement("div");
+    d.className = "pin-dot" + (i < state.pin.length ? " filled" : "");
+    el.appendChild(d);
+  }
+}
+
+function buildKeypad() {
+  const grid = document.querySelector("#loginScreen .grid");
+  grid.innerHTML = "";
+  const keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
+  keys.forEach(k => {
+    const btn = document.createElement("button");
+    btn.className = "btn-ghost rounded py-3 font-mono text-lg" + (k === "" ? " opacity-0 pointer-events-none" : "");
+    btn.textContent = k;
+    btn.addEventListener("click", () => {
+      if (k === "⌫") { state.pin = state.pin.slice(0, -1); }
+      else if (k !== "" && state.pin.length < 4) { state.pin += k; }
+      renderPinDots();
+      if (state.pin.length === 4) attemptLogin();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+$("#loginClearBtn").addEventListener("click", () => { state.pin = ""; renderPinDots(); $("#loginError").classList.add("hidden"); });
+$("#loginSubmitBtn").addEventListener("click", () => {
+  if (state.pin.length === 0) {
+    $("#loginError").textContent = "Enter your PIN first.";
+    $("#loginError").classList.remove("hidden");
+    return;
+  }
+  attemptLogin();
+});
+
+async function loadUsersForLogin() {
+  const result = await api("Users.list");
+  state.usersCache = (result.success ? result.data : []).filter(u => String(u.active).toUpperCase() !== "FALSE");
+  const sel = $("#loginUserSelect");
+  sel.innerHTML = "";
+
+  if (state.usersCache.length === 0) {
+    // No users at all yet — show the bootstrap form instead of a PIN pad that can't succeed
+    $("#loginPinSection").classList.add("hidden");
+    $("#bootstrapSection").classList.remove("hidden");
+    sel.innerHTML = "<option>— create your first Super Admin below —</option>";
+    return;
+  }
+
+  $("#loginPinSection").classList.remove("hidden");
+  $("#bootstrapSection").classList.add("hidden");
+  state.usersCache.forEach(u => {
+    const opt = document.createElement("option");
+    opt.value = u.user_id;
+    opt.textContent = `${u.name} — ${u.role}`;
+    sel.appendChild(opt);
+  });
+}
+
+$("#bootstrapCreateBtn").addEventListener("click", async () => {
+  const name = $("#bootstrapName").value.trim();
+  const pin = $("#bootstrapPin").value.trim();
+  const err = $("#bootstrapError");
+  err.classList.add("hidden");
+  if (!name || !pin) {
+    err.textContent = "Name and PIN are both required.";
+    err.classList.remove("hidden");
+    return;
+  }
+  const result = await api("Users.create", { name, role: "SuperAdmin", pin, active: true }, "POST");
+  if (!result.success) {
+    err.textContent = result.error;
+    err.classList.remove("hidden");
+    return;
+  }
+  // Log straight in as the user we just created
+  const loginResult = await api("login", { user_id: result.data.user_id, pin }, "POST");
+  if (loginResult.success) {
+    state.session = loginResult.data;
+    localStorage.setItem(LS_KEYS.SESSION, JSON.stringify(state.session));
+    enterApp();
+  } else {
+    // Created fine, but auto-login failed for some reason — fall back to normal login
+    loadUsersForLogin();
+  }
+});
+
+async function attemptLogin() {
+  const userId = $("#loginUserSelect").value;
+  const result = await api("login", { user_id: userId, pin: state.pin }, "POST");
+  if (result.success) {
+    state.session = result.data;
+    localStorage.setItem(LS_KEYS.SESSION, JSON.stringify(state.session));
+    state.pin = "";
+    enterApp();
+  } else {
+    $("#loginError").textContent = result.error || "Login failed.";
+    $("#loginError").classList.remove("hidden");
+    state.pin = "";
+    renderPinDots();
+  }
+}
+
+/* =================================================================
+   NAVIGATION / SHELL
+================================================================= */
+function renderNav() {
+  const nav = $("#sideNav");
+  nav.innerHTML = "";
+  currentNavGroups().forEach(group => {
+    const h = document.createElement("div");
+    h.className = "px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)] font-mono";
+    h.textContent = group.title;
+    nav.appendChild(h);
+    group.items.forEach(([key, label]) => {
+      const btn = document.createElement("button");
+      btn.className = "nav-item w-full text-left px-4 py-2 text-sm transition-colors";
+      btn.textContent = label;
+      btn.dataset.module = key;
+      btn.addEventListener("click", () => setModule(key));
+      nav.appendChild(btn);
+    });
+  });
+  updateActiveNav();
+}
+
+function updateActiveNav() {
+  document.querySelectorAll(".nav-item").forEach(el => {
+    el.classList.toggle("active", el.dataset.module === state.activeModule);
+  });
+}
+
+function enterApp() {
+  $("#loginScreen").classList.add("force-hidden");
+  $("#appShell").classList.remove("force-hidden");
+  $("#execName").textContent = state.session.name;
+  $("#execRole").textContent = state.session.role;
+  const scopeBadge = $("#campusScopeBadge");
+  if (state.session.role === EXEC_ROLE) {
+    scopeBadge.classList.add("hidden");
+  } else {
+    scopeBadge.textContent = "Campus: " + state.session.campus_id;
+    scopeBadge.classList.remove("hidden");
+  }
+  renderNav();
+  setModule("dashboard");
+}
+
+$("#execBadgeBtn").addEventListener("click", () => {
+  localStorage.removeItem(LS_KEYS.SESSION);
+  state.session = null;
+  $("#appShell").classList.add("force-hidden");
+  showLogin();
+});
+
+function setModule(key) {
+  state.activeModule = key;
+  updateActiveNav();
+  const titles = {
+    dashboard: "Dashboard", posaudit: "POS Audit Board", dispatch: "Morning Dispatch",
+    wastage: "Log Wastage", sale: "Log a Sale", posSubmit: "Submit POS Audit"
+  };
+  $("#pageTitle").textContent = titles[key] || (TABLES[key] ? TABLES[key].label : key);
+  const main = $("#mainContent");
+  main.innerHTML = `<div class="text-[var(--text-muted)] text-sm">Loading…</div>`;
+  main.classList.remove("fade-in");
+  void main.offsetWidth; // force reflow so the animation restarts on every switch
+  main.classList.add("fade-in");
+  if (key === "dashboard") renderDashboard();
+  else if (key === "posaudit") renderPOSBoard();
+  else if (key === "dispatch") renderDispatchForm();
+  else if (key === "wastage") renderWastageForm();
+  else if (key === "sale") renderSaleForm();
+  else if (key === "posSubmit") renderPOSSubmitForm();
+  else if (TABLES[key]) renderGenericTable(key);
+}
+
+/* =================================================================
+   DASHBOARD
+================================================================= */
+async function renderDashboard() {
+  const main = $("#mainContent");
+  const [salesRes, expensesRes, campusesRes, rawRes, coldRes] = await Promise.all([
+    api("Sales.list"), api("Expenses.list"), api("Campuses.list"), api("RawMaterials.list"), api("ColdChainLog.list")
+  ]);
+  const sales = salesRes.success ? salesRes.data : [];
+  const expenses = expensesRes.success ? expensesRes.data : [];
+  const campuses = campusesRes.success ? campusesRes.data : [];
+  const rawMaterials = rawRes.success ? rawRes.data : [];
+  const coldLogs = coldRes.success ? coldRes.data : [];
+
+  const grossRevenue = sales.reduce((sum, s) => sum + (Number(s.qty) * Number(s.unit_price)), 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const netYield = grossRevenue - totalExpenses;
+  const lowStock = rawMaterials.filter(r => Number(r.current_stock_central) <= Number(r.reorder_threshold));
+  const failedColdChain = coldLogs.filter(c => c.pass_fail === "Fail").slice(-5).reverse();
+
+  main.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      ${statCard("Gross Network Revenue", "PKR " + grossRevenue.toLocaleString(), "var(--pass)")}
+      ${statCard("Total Expenses Logged", "PKR " + totalExpenses.toLocaleString(), "var(--fail)")}
+      ${statCard("Net Yield (Rev − Exp)", "PKR " + netYield.toLocaleString(), netYield >= 0 ? "var(--pass)" : "var(--fail)")}
+      ${statCard("Active Campuses", campuses.length + " / 7", "var(--accent)")}
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h3 class="font-display font-semibold mb-3 text-sm">⚠ Raw Materials Below Reorder Threshold</h3>
+        ${lowStock.length === 0
+          ? `<p class="text-sm text-[var(--text-muted)]">Nothing flagged — all stock is above its reorder threshold.</p>`
+          : `<table class="data-table w-full text-left"><thead><tr><th class="py-1.5">Material</th><th>Central Stock</th><th>Threshold</th></tr></thead><tbody>
+              ${lowStock.map(r => `<tr><td class="py-1.5">${esc(r.material_name)}</td><td class="font-mono badge-fail px-2 rounded inline-block">${r.current_stock_central}</td><td class="font-mono">${r.reorder_threshold}</td></tr>`).join("")}
+             </tbody></table>`}
+      </div>
+      <div class="card p-4">
+        <h3 class="font-display font-semibold mb-3 text-sm">🌡 Recent Cold-Chain Failures</h3>
+        ${failedColdChain.length === 0
+          ? `<p class="text-sm text-[var(--text-muted)]">No dispatch temperature failures on record.</p>`
+          : `<table class="data-table w-full text-left"><thead><tr><th class="py-1.5">Date</th><th>Temp (°C)</th><th>Recorded By</th></tr></thead><tbody>
+              ${failedColdChain.map(c => `<tr><td class="py-1.5">${esc(String(c.dispatch_date).substring(0,10))}</td><td class="font-mono badge-fail px-2 rounded inline-block">${c.vehicle_temp_c}</td><td>${esc(c.recorded_by)}</td></tr>`).join("")}
+             </tbody></table>`}
+      </div>
+    </div>
+  `;
+}
+
+function statCard(label, value, color) {
+  return `<div class="card p-4">
+    <div class="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">${label}</div>
+    <div class="font-mono text-xl font-semibold" style="color:${color}">${value}</div>
+  </div>`;
+}
+
+/* =================================================================
+   POS AUDIT BOARD
+================================================================= */
+async function renderPOSBoard() {
+  const main = $("#mainContent");
+  const today = new Date();
+  const defaultWeek = today.toISOString().substring(0, 10);
+
+  main.innerHTML = `
+    <div class="card p-4 mb-4 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="text-xs text-[var(--text-muted)] block mb-1">Week Ending</label>
+        <input id="posWeekInput" type="date" value="${defaultWeek}" class="input-dark rounded px-3 py-1.5 text-sm" />
+      </div>
+      <button id="posLoadBtn" class="btn-accent rounded px-4 py-1.5 text-sm font-medium">Load Board</button>
+      <button id="posPayoutBtn" class="btn-ghost rounded px-4 py-1.5 text-sm font-medium">Check Payout Status</button>
+      <div id="posPayoutResult" class="text-sm ml-2"></div>
+    </div>
+    <div id="posBoardTable" class="card p-4"><p class="text-sm text-[var(--text-muted)]">Pick a week and click Load Board.</p></div>
+  `;
+
+  $("#posLoadBtn").addEventListener("click", loadPOSBoard);
+  $("#posPayoutBtn").addEventListener("click", checkPOSPayout);
+}
+
+async function loadPOSBoard() {
+  const week = $("#posWeekInput").value;
+  const container = $("#posBoardTable");
+  container.innerHTML = `<p class="text-sm text-[var(--text-muted)]">Loading…</p>`;
+  const [campusesRes, auditsRes] = await Promise.all([api("Campuses.list"), api("POSAudit.list", { week_ending: week })]);
+  const campuses = campusesRes.success ? campusesRes.data : [];
+  const audits = auditsRes.success ? auditsRes.data : [];
+
+  const rows = campuses.map(c => {
+    const audit = audits.find(a => String(a.campus_id) === String(c.campus_id));
+    const status = audit ? audit.status : "Not Submitted";
+    const badgeClass = status === "Pass" || status === "Verified" ? "badge-pass" : status === "Flagged" ? "badge-fail" : "badge-warn";
+    return `<tr data-campus="${esc(c.campus_id)}">
+      <td class="py-2">${esc(c.campus_name)}</td>
+      <td class="font-mono">${audit ? Number(audit.pos_reported_total).toLocaleString() : "—"}</td>
+      <td class="font-mono">${audit ? Number(audit.cash_deposited_total).toLocaleString() : "—"}</td>
+      <td class="font-mono">${audit ? audit.variance : "—"}</td>
+      <td><span class="px-2 py-0.5 rounded text-xs ${badgeClass}">${status}</span></td>
+      <td>${audit && audit.status === "Flagged" ? `<button class="btn-ghost rounded px-2 py-1 text-xs verify-btn" data-audit="${esc(audit.audit_id)}">Verify Override</button>` : ""}</td>
+    </tr>`;
+  }).join("");
+
+  container.innerHTML = `
+    <table class="data-table w-full text-left">
+      <thead><tr><th class="py-1.5">Campus</th><th>POS Total</th><th>Cash Deposited</th><th>Variance</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="py-3 text-[var(--text-muted)]">No campuses found — add some under Data > Campuses.</td></tr>`}</tbody>
+    </table>
+  `;
+
+  document.querySelectorAll(".verify-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const auditId = btn.dataset.audit;
+      const res = await api("POSAudit.verify", { audit_id: auditId, verified_by: state.session.name }, "POST");
+      if (res.success) loadPOSBoard();
+      else alert(res.error);
+    });
+  });
+}
+
+async function checkPOSPayout() {
+  const week = $("#posWeekInput").value;
+  const result = await api("POSAudit.checkPayout", { week_ending: week });
+  const el = $("#posPayoutResult");
+  if (!result.success) { el.innerHTML = `<span style="color:var(--fail)">${esc(result.error)}</span>`; return; }
+  const d = result.data;
+  if (d.payout_unlocked) {
+    el.innerHTML = `<span class="px-2 py-0.5 rounded badge-pass text-xs">Payout Unlocked</span>`;
+  } else {
+    el.innerHTML = `<span class="px-2 py-0.5 rounded badge-fail text-xs">${d.pending_campuses.length} campus(es) pending: ${d.pending_campuses.map(p => esc(p.campus_name)).join(", ")}</span>`;
+  }
+}
+
+/* =================================================================
+   MORNING DISPATCH FORM
+================================================================= */
+let dispatchItemCount = 0;
+
+async function renderDispatchForm() {
+  const main = $("#mainContent");
+  main.innerHTML = `
+    <div class="card p-5 max-w-2xl">
+      <p class="text-sm text-[var(--text-muted)] mb-4">Logs the cold-chain temperature check. Inventory batches are only created at destination campuses if the check passes (below ${COLD_CHAIN_MAX_TEMP_C}°C).</p>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div><label class="text-xs text-[var(--text-muted)] block mb-1">Dispatch Date</label>
+          <input id="dispDate" type="date" class="input-dark rounded px-3 py-1.5 text-sm w-full" /></div>
+        <div><label class="text-xs text-[var(--text-muted)] block mb-1">Vehicle Temp (°C)</label>
+          <input id="dispTemp" type="number" step="0.1" class="input-dark rounded px-3 py-1.5 text-sm w-full" placeholder="e.g. 3.2" /></div>
+      </div>
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Recorded By</label>
+      <input id="dispBy" type="text" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4" placeholder="e.g. Sajawal" />
+
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-display font-semibold text-sm">Batches on this run</h3>
+        <button id="dispAddItemBtn" class="btn-ghost rounded px-2 py-1 text-xs">+ Add batch</button>
+      </div>
+      <div id="dispItems" class="space-y-2 mb-4"></div>
+
+      <div id="dispResult" class="text-sm mb-3"></div>
+      <button id="dispSubmitBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Log Dispatch</button>
+    </div>
+  `;
+  $("#dispAddItemBtn").addEventListener("click", addDispatchItemRow);
+  addDispatchItemRow();
+  $("#dispSubmitBtn").addEventListener("click", submitDispatch);
+}
+
+function addDispatchItemRow() {
+  dispatchItemCount++;
+  const id = dispatchItemCount;
+  const row = document.createElement("div");
+  row.className = "grid grid-cols-4 gap-2 items-center";
+  row.dataset.rowId = id;
+  row.innerHTML = `
+    <input placeholder="raw_material_id" class="input-dark rounded px-2 py-1.5 text-xs font-mono disp-rm" />
+    <input placeholder="location (campus_id)" class="input-dark rounded px-2 py-1.5 text-xs font-mono disp-loc" />
+    <input placeholder="batch_qty" type="number" class="input-dark rounded px-2 py-1.5 text-xs font-mono disp-qty" />
+    <input placeholder="expiry_date" type="date" class="input-dark rounded px-2 py-1.5 text-xs font-mono disp-exp" />
+  `;
+  $("#dispItems").appendChild(row);
+}
+
+async function submitDispatch() {
+  const items = Array.from(document.querySelectorAll("#dispItems > div")).map(row => ({
+    raw_material_id: row.querySelector(".disp-rm").value.trim(),
+    location: row.querySelector(".disp-loc").value.trim(),
+    batch_qty: Number(row.querySelector(".disp-qty").value),
+    expiry_date: row.querySelector(".disp-exp").value
+  })).filter(i => i.raw_material_id && i.location && i.batch_qty > 0);
+
+  const payload = {
+    dispatch_date: $("#dispDate").value,
+    vehicle_temp_c: Number($("#dispTemp").value),
+    recorded_by: $("#dispBy").value || state.session.name,
+    items
+  };
+  const result = await api("Dispatch.create", payload, "POST");
+  const el = $("#dispResult");
+  if (!result.success) { el.innerHTML = `<span style="color:var(--fail)">${esc(result.error)}</span>`; return; }
+  const d = result.data;
+  if (d.pass_fail === "Fail") {
+    el.innerHTML = `<div class="px-3 py-2 rounded badge-fail">🚫 ${esc(d.dispatch_clearance)}</div>`;
+  } else {
+    el.innerHTML = `<div class="px-3 py-2 rounded badge-pass">✔ Cleared — ${d.batches_created.length} batch(es) dispatched.</div>`;
+  }
+}
+
+/* =================================================================
+   WASTAGE FORM
+================================================================= */
+async function renderWastageForm() {
+  const main = $("#mainContent");
+  main.innerHTML = `
+    <div class="card p-5 max-w-lg">
+      <p class="text-sm text-[var(--text-muted)] mb-4">Deducts spoiled/expired stock via FIFO the same way a sale would — but never touches revenue or Sales figures.</p>
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Campus ID</label>
+      <input id="wstCampus" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" placeholder="CMP-XXXX" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Raw Material ID</label>
+      <input id="wstRawMaterial" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" placeholder="RM-XXXX" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Quantity Wasted</label>
+      <input id="wstQty" type="number" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Reason</label>
+      <input id="wstReason" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4" placeholder="e.g. Expired before use" />
+      <div id="wstResult" class="text-sm mb-3"></div>
+      <button id="wstSubmitBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Log Wastage</button>
+    </div>
+  `;
+  $("#wstSubmitBtn").addEventListener("click", async () => {
+    const payload = {
+      campus_id: $("#wstCampus").value.trim(),
+      raw_material_id: $("#wstRawMaterial").value.trim(),
+      qty_wasted: Number($("#wstQty").value),
+      reason: $("#wstReason").value,
+      actor_name: state.session.name
+    };
+    const result = await api("WastageLog.create", payload, "POST");
+    const el = $("#wstResult");
+    if (!result.success) { el.innerHTML = `<span style="color:var(--fail)">${esc(result.error)}</span>`; return; }
+    const d = result.data;
+    el.innerHTML = `<div class="px-3 py-2 rounded ${d.shortage > 0 ? "badge-fail" : "badge-pass"}">
+      Deducted ${d.qty_deducted}${d.shortage > 0 ? ` — short by ${d.shortage}` : ""}.
+    </div>`;
+  });
+}
+
+/* =================================================================
+   LOG A SALE (campus-scoped daily ops)
+================================================================= */
+async function renderSaleForm() {
+  const main = $("#mainContent");
+  const isAdmin = state.session.role === EXEC_ROLE;
+  const menuRes = await api("MenuItems.list");
+  const menuItems = menuRes.success ? menuRes.data : [];
+
+  main.innerHTML = `
+    <div class="card p-5 max-w-lg">
+      <p class="text-sm text-[var(--text-muted)] mb-4">Logs the sale and automatically FIFO-deducts every raw material the item's recipe calls for.</p>
+      ${isAdmin ? `
+        <label class="text-xs text-[var(--text-muted)] block mb-1">Campus ID</label>
+        <input id="saleCampus" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" placeholder="CMP-XXXX" />
+      ` : `<div class="text-xs text-[var(--text-muted)] mb-3">Logging for your campus: <span class="font-mono">${esc(state.session.campus_id)}</span></div>`}
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Menu Item</label>
+      <select id="saleItem" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3">
+        ${menuItems.map(m => `<option value="${esc(m.item_id)}" data-price="${esc(m.retail_price)}">${esc(m.item_name)} — PKR ${esc(m.retail_price)}</option>`).join("") || `<option value="">No menu items found</option>`}
+      </select>
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Quantity</label>
+      <input id="saleQty" type="number" min="1" value="1" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Grade Tier (optional)</label>
+      <input id="saleGrade" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4" placeholder="Elder / Junior" />
+      <div id="saleResult" class="text-sm mb-3"></div>
+      <button id="saleSubmitBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Log Sale</button>
+    </div>
+  `;
+
+  $("#saleSubmitBtn").addEventListener("click", async () => {
+    const payload = {
+      item_id: $("#saleItem").value,
+      qty: Number($("#saleQty").value),
+      grade_tier: $("#saleGrade").value,
+      actor_name: state.session.name
+    };
+    if (isAdmin) payload.campus_id = $("#saleCampus").value.trim();
+    const result = await api("Sales.create", payload, "POST");
+    const el = $("#saleResult");
+    if (!result.success) { el.innerHTML = `<span style="color:var(--fail)">${esc(result.error)}</span>`; return; }
+    const d = result.data;
+    const warn = d.stock_warning ? `<div class="mt-2 px-3 py-2 rounded badge-warn text-xs">${esc(d.stock_warning)}</div>` : "";
+    el.innerHTML = `<div class="px-3 py-2 rounded badge-pass">✔ Sale logged — ${d.qty} × ${esc(d.item_id)} @ PKR ${d.unit_price}</div>${warn}`;
+  });
+}
+
+/* =================================================================
+   SUBMIT POS AUDIT (campus-scoped daily ops — the campus side of
+   the Friday reconciliation the Super Admin board also shows)
+================================================================= */
+async function renderPOSSubmitForm() {
+  const main = $("#mainContent");
+  const isAdmin = state.session.role === EXEC_ROLE;
+  const today = new Date().toISOString().substring(0, 10);
+
+  main.innerHTML = `
+    <div class="card p-5 max-w-lg">
+      <p class="text-sm text-[var(--text-muted)] mb-4">Variance is calculated automatically — a difference of ${POS_VARIANCE_THRESHOLD} PKR or less passes on its own; anything more gets flagged for executive review.</p>
+      ${isAdmin ? `
+        <label class="text-xs text-[var(--text-muted)] block mb-1">Campus ID</label>
+        <input id="posCampus" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" placeholder="CMP-XXXX" />
+      ` : `<div class="text-xs text-[var(--text-muted)] mb-3">Submitting for your campus: <span class="font-mono">${esc(state.session.campus_id)}</span></div>`}
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Week Ending</label>
+      <input id="posSubmitWeek" type="date" value="${today}" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">POS Reported Total (PKR)</label>
+      <input id="posReported" type="number" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Cash Deposited Total (PKR)</label>
+      <input id="posCash" type="number" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4" />
+      <div id="posSubmitResult" class="text-sm mb-3"></div>
+      <button id="posSubmitBtnForm" class="btn-accent rounded px-4 py-2 text-sm font-medium">Submit Audit</button>
+    </div>
+  `;
+
+  $("#posSubmitBtnForm").addEventListener("click", async () => {
+    const payload = {
+      week_ending: $("#posSubmitWeek").value,
+      pos_reported_total: Number($("#posReported").value),
+      cash_deposited_total: Number($("#posCash").value),
+      actor_name: state.session.name
+    };
+    if (isAdmin) payload.campus_id = $("#posCampus").value.trim();
+    const result = await api("POSAudit.submit", payload, "POST");
+    const el = $("#posSubmitResult");
+    if (!result.success) { el.innerHTML = `<span style="color:var(--fail)">${esc(result.error)}</span>`; return; }
+    const d = result.data;
+    const badgeClass = d.status === "Pass" ? "badge-pass" : "badge-fail";
+    el.innerHTML = `<div class="px-3 py-2 rounded ${badgeClass}">Variance: PKR ${d.variance} — <strong>${esc(d.status)}</strong></div>`;
+  });
+}
+
+/* =================================================================
+   GENERIC TABLE VIEW (CRUD for generic tables, read-only otherwise)
+================================================================= */
+
+// Mirrors the backend's Phase 4 authorization policy — purely for deciding
+// whether to SHOW write buttons. The backend enforces the real rule
+// regardless of what the UI does, so this is a UX nicety, not the security.
+const ADMIN_ONLY_WRITE_TABLES = ["Users", "Campuses", "MenuItems", "Recipes", "RawMaterials", "InventoryLedger", "ColdChainLog", "VendorInvoices"];
+const CAMPUS_SELF_WRITE_TABLES = ["Attendance", "SchoolCalendar", "HygieneChecklist", "Expenses"];
+
+function canWriteTable(tableKey) {
+  const isAdmin = state.session && state.session.role === EXEC_ROLE;
+  if (ADMIN_ONLY_WRITE_TABLES.indexOf(tableKey) !== -1) return isAdmin;
+  if (CAMPUS_SELF_WRITE_TABLES.indexOf(tableKey) !== -1) return true; // both roles can write; backend scopes it to campus
+  return isAdmin; // safe default for anything unlisted
+}
+
+async function renderGenericTable(tableKey) {
+  const meta = TABLES[tableKey];
+  const writable = meta.mode === "generic" && canWriteTable(tableKey);
+  const main = $("#mainContent");
+  main.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex gap-2 flex-wrap" id="filterBar"></div>
+      ${writable ? `<button id="genAddBtn" class="btn-accent rounded px-3 py-1.5 text-sm font-medium">+ New</button>` : ""}
+    </div>
+    <div id="genTableWrap" class="card p-4 overflow-x-auto"><p class="text-sm text-[var(--text-muted)]">Loading…</p></div>
+  `;
+
+  // Universal filter framework: one text input per column, applied client-side after fetch
+  const filterBar = $("#filterBar");
+  meta.columns.slice(0, 4).forEach(col => {
+    const input = document.createElement("input");
+    input.placeholder = "Filter " + col;
+    input.dataset.col = col;
+    input.className = "input-dark rounded px-2 py-1 text-xs font-mono w-36";
+    input.addEventListener("input", () => renderGenericRows(tableKey, meta));
+    filterBar.appendChild(input);
+  });
+
+  if (writable) {
+    $("#genAddBtn").addEventListener("click", () => openRecordModal(tableKey, meta, null));
+  }
+
+  await renderGenericRows(tableKey, meta);
+}
+
+let genericCache = {};
+
+async function renderGenericRows(tableKey, meta) {
+  const wrap = $("#genTableWrap");
+  const writable = meta.mode === "generic" && canWriteTable(tableKey);
+  const result = await api(tableKey + ".list");
+  const rows = result.success ? result.data : [];
+  genericCache[tableKey] = rows;
+
+  const filters = Array.from(document.querySelectorAll("#filterBar input")).map(i => ({ col: i.dataset.col, val: i.value.trim().toLowerCase() })).filter(f => f.val);
+  const filtered = rows.filter(r => filters.every(f => String(r[f.col] ?? "").toLowerCase().includes(f.val)));
+
+  const head = meta.columns.map(c => `<th class="py-1.5 pr-4">${c}</th>`).join("") + (writable ? "<th></th>" : "");
+  const body = filtered.map(r => {
+    const cells = meta.columns.map(c => `<td class="py-1.5 pr-4 font-mono">${esc(formatCell(r[c]))}</td>`).join("");
+    const actions = writable
+      ? `<td class="whitespace-nowrap"><button class="btn-ghost rounded px-2 py-0.5 text-xs edit-row mr-1" data-id="${esc(r[meta.idField])}">Edit</button><button class="btn-ghost rounded px-2 py-0.5 text-xs del-row" data-id="${esc(r[meta.idField])}">Delete</button></td>`
+      : "";
+    return `<tr>${cells}${actions}</tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <table class="data-table w-full text-left">
+      <thead><tr>${head}</tr></thead>
+      <tbody>${body || `<tr><td colspan="${meta.columns.length + 1}" class="py-3 text-[var(--text-muted)]">No records yet.</td></tr>`}</tbody>
+    </table>
+  `;
+
+  if (writable) {
+    document.querySelectorAll(".edit-row").forEach(btn => btn.addEventListener("click", () => {
+      const record = filtered.find(r => String(r[meta.idField]) === btn.dataset.id);
+      openRecordModal(tableKey, meta, record);
+    }));
+    document.querySelectorAll(".del-row").forEach(btn => btn.addEventListener("click", async () => {
+      if (!confirm("Delete this record?")) return;
+      const idField = meta.idField;
+      const payload = { [idField]: btn.dataset.id, actor_name: state.session.name };
+      const res = await api(tableKey + ".delete", payload, "POST");
+      if (res.success) renderGenericRows(tableKey, meta);
+      else alert(res.error);
+    }));
+  }
+}
+
+function formatCell(v) {
+  if (v === undefined || v === null) return "";
+  if (v instanceof Object && v.toString) return String(v);
+  return v;
+}
+
+function openRecordModal(tableKey, meta, record) {
+  const isEdit = !!record;
+  const overlay = document.createElement("div");
+  overlay.className = "fixed inset-0 z-50 flex items-center justify-center modal-backdrop";
+  const fields = meta.columns.filter(c => c !== meta.idField && !(meta.autoFields || []).includes(c));
+  overlay.innerHTML = `
+    <div class="card w-full max-w-md mx-4 p-5">
+      <h3 class="font-display font-semibold mb-3">${isEdit ? "Edit" : "New"} ${meta.label} record</h3>
+      <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+        ${fields.map(f => `
+          <div>
+            <label class="text-xs text-[var(--text-muted)] block mb-0.5">${f}</label>
+            <input data-field="${f}" class="input-dark rounded px-2 py-1.5 text-sm w-full font-mono" value="${isEdit && record[f] !== undefined ? esc(String(record[f])) : ""}" />
+          </div>
+        `).join("")}
+      </div>
+      <div id="modalError" class="text-sm mt-2 hidden" style="color:var(--fail)"></div>
+      <div class="flex gap-2 mt-4">
+        <button id="modalCancel" class="btn-ghost rounded px-3 py-1.5 text-sm flex-1">Cancel</button>
+        <button id="modalSave" class="btn-accent rounded px-3 py-1.5 text-sm flex-1 font-medium">${isEdit ? "Save changes" : "Create"}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#modalCancel").addEventListener("click", () => overlay.remove());
+  overlay.querySelector("#modalSave").addEventListener("click", async () => {
+    const payload = { actor_name: state.session.name };
+    if (isEdit) payload[meta.idField] = record[meta.idField];
+    fields.forEach(f => { payload[f] = overlay.querySelector(`[data-field="${f}"]`).value; });
+    const res = await api(tableKey + (isEdit ? ".update" : ".create"), payload, "POST");
+    if (res.success) {
+      overlay.remove();
+      renderGenericRows(tableKey, meta);
+    } else {
+      const err = overlay.querySelector("#modalError");
+      err.textContent = res.error;
+      err.classList.remove("hidden");
+    }
+  });
+}
+
+/* =================================================================
+   HELPERS
+================================================================= */
+function esc(str) {
+  return String(str ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+}
+
+function showLogin() {
+  $("#loginScreen").classList.remove("force-hidden");
+  renderPinDots();
+  buildKeypad();
+  loadUsersForLogin();
+}
+
+/* =================================================================
+   THEME (light / dark)
+================================================================= */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const icon = theme === "light" ? "☀️" : "🌙";
+  document.querySelectorAll("#themeIcon, .theme-icon-standalone").forEach(el => el.textContent = icon);
+  localStorage.setItem(LS_KEYS.THEME, theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.dataset.theme || "dark";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+
+document.querySelectorAll("#themeToggleBtn, .standalone-theme-toggle").forEach(btn => {
+  btn.addEventListener("click", toggleTheme);
+});
+
+// Apply saved theme immediately (before boot), so there's no flash of the wrong theme
+applyTheme(localStorage.getItem(LS_KEYS.THEME) || "dark");
+
+/* =================================================================
+   BOOT
+================================================================= */
+async function boot() {
+  if (!state.apiUrl) {
+    $("#setupGate").classList.remove("force-hidden");
+    return;
+  }
+  if (state.session) {
+    enterApp();
+  } else {
+    showLogin();
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
