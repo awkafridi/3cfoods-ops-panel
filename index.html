@@ -12,6 +12,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root, [data-theme="dark"]{
     --bg:#191b19; --surface:#232622; --surface2:#2c2f29; --line:#3c4038;
@@ -395,7 +398,7 @@ const TABLES = {
   Campuses:   { label: "Campuses", mode: "generic", idField: "campus_id",
     columns: ["campus_id","campus_name","grade_tier","cluster","enrollment","monthly_rent","supervisor_id"] },
   MenuItems:  { label: "Menu Items", mode: "generic", idField: "item_id",
-    columns: ["item_id","item_name","category","portion_grams","retail_price","recipe_id"] },
+    columns: ["item_id","item_name","category","portion_grams","retail_price","recipe_id","barcode"] },
   Recipes:    { label: "Recipes", mode: "generic", idField: "recipe_id",
     columns: ["recipe_id","item_id","raw_material_id","qty_per_unit"] },
   RawMaterials:{ label: "Raw Materials", mode: "generic", idField: "raw_material_id",
@@ -405,7 +408,7 @@ const TABLES = {
   ColdChainLog:{ label: "Cold-Chain Log", mode: "generic", idField: "log_id",
     columns: ["log_id","dispatch_date","vehicle_temp_c","pass_fail","recorded_by"], autoFields:["pass_fail"] },
   Sales:      { label: "Sales", mode: "readonly", idField: "sale_id",
-    columns: ["sale_id","campus_id","item_id","qty","unit_price","sale_datetime","grade_tier"] },
+    columns: ["sale_id","campus_id","item_id","qty","unit_price","sale_datetime","grade_tier","transaction_id"] },
   POSAudit:   { label: "POS Audit", mode: "readonly", idField: "audit_id",
     columns: ["audit_id","campus_id","week_ending","pos_reported_total","cash_deposited_total","variance","status","verified_by","payout_unlocked"] },
   Expenses:   { label: "Expenses", mode: "generic", idField: "expense_id",
@@ -423,20 +426,24 @@ const TABLES = {
   Users:      { label: "Users", mode: "generic", idField: "user_id",
     columns: ["user_id","name","role","campus_id","active"] },
   ActivityLog:{ label: "Activity Log", mode: "readonly", idField: "log_id",
-    columns: ["log_id","timestamp","user_name","action_type","details"] }
+    columns: ["log_id","timestamp","user_name","action_type","details"] },
+  MonthlyClosing:{ label: "Monthly Closings", mode: "readonly", idField: "closing_id",
+    columns: ["closing_id","month","total_revenue","total_expenses","total_cogs_estimate","net_profit","closed_by","closed_at"] }
 };
 
 const EXEC_ROLE = "SuperAdmin";
 
 const NAV_GROUPS_ADMIN = [
   { title: "Overview", items: [ ["dashboard","Dashboard"], ["posaudit","POS Audit Board"] ] },
+  { title: "Point of Sale", items: [ ["pos","POS Terminal"], ["dailyClose","Daily Register Close"] ] },
   { title: "Operations", items: [ ["dispatch","Morning Dispatch"], ["wastage","Log Wastage"] ] },
+  { title: "Executive", items: [ ["monthClose","Month-End Closing"], ["bulkSetup","Setup Wizard"], ["dangerZone","Danger Zone"] ] },
   { title: "Data", items: [
       ["Campuses","Campuses"], ["MenuItems","Menu Items"], ["Recipes","Recipes"],
       ["RawMaterials","Raw Materials"], ["InventoryLedger","Inventory Ledger"], ["ColdChainLog","Cold-Chain Log"],
       ["Sales","Sales"], ["Expenses","Expenses"], ["HygieneChecklist","Hygiene Checklist"],
       ["Attendance","Attendance"], ["WastageLog","Wastage Log"], ["VendorInvoices","Vendor Ledger"],
-      ["SchoolCalendar","School Calendar"], ["Users","Users"], ["ActivityLog","Activity Log"]
+      ["SchoolCalendar","School Calendar"], ["Users","Users"], ["MonthlyClosing","Monthly Closings"], ["ActivityLog","Activity Log"]
   ]}
 ];
 
@@ -444,7 +451,8 @@ const NAV_GROUPS_ADMIN = [
 // server-side too, this is just the matching (smaller) menu for that role.
 const NAV_GROUPS_CAMPUS = [
   { title: "Overview", items: [ ["dashboard","Dashboard"] ] },
-  { title: "Daily Ops", items: [ ["sale","Log a Sale"], ["posSubmit","Submit POS Audit"], ["wastage","Log Wastage"] ] },
+  { title: "Point of Sale", items: [ ["pos","POS Terminal"], ["dailyClose","Daily Register Close"] ] },
+  { title: "Daily Ops", items: [ ["sale","Log a Sale (manual)"], ["posSubmit","Submit POS Audit"], ["wastage","Log Wastage"] ] },
   { title: "My Campus Data", items: [
       ["MenuItems","Menu Items"], ["RawMaterials","Raw Materials"], ["Sales","My Sales"],
       ["Attendance","Attendance"], ["HygieneChecklist","Hygiene Checklist"],
@@ -724,7 +732,9 @@ function setModule(key) {
   closeMobileNav();
   const titles = {
     dashboard: "Dashboard", posaudit: "POS Audit Board", dispatch: "Morning Dispatch",
-    wastage: "Log Wastage", sale: "Log a Sale", posSubmit: "Submit POS Audit"
+    wastage: "Log Wastage", sale: "Log a Sale (manual)", posSubmit: "Submit POS Audit",
+    pos: "POS Terminal", dailyClose: "Daily Register Close", monthClose: "Month-End Closing",
+    bulkSetup: "Setup Wizard", dangerZone: "Danger Zone"
   };
   $("#pageTitle").textContent = titles[key] || (TABLES[key] ? TABLES[key].label : key);
   const main = $("#mainContent");
@@ -738,6 +748,11 @@ function setModule(key) {
   else if (key === "wastage") renderWastageForm();
   else if (key === "sale") renderSaleForm();
   else if (key === "posSubmit") renderPOSSubmitForm();
+  else if (key === "pos") renderPOSTerminal();
+  else if (key === "dailyClose") renderDailyClose();
+  else if (key === "monthClose") renderMonthClose();
+  else if (key === "bulkSetup") renderBulkSetup();
+  else if (key === "dangerZone") renderDangerZone();
   else if (TABLES[key]) renderGenericTable(key);
 }
 
@@ -1207,6 +1222,497 @@ async function renderPOSSubmitForm() {
 }
 
 /* =================================================================
+   POS TERMINAL — cart + barcode scanner support
+   USB barcode scanners act as a keyboard: they "type" the barcode digits
+   very fast then send an Enter keystroke. This listens for that pattern on
+   a dedicated input that stays focused, so a salesman just scans and the
+   item appears in the cart immediately — no clicking required.
+================================================================= */
+let posCart = []; // { item_id, item_name, unit_price, qty }
+let posMenuItems = [];
+
+async function renderPOSTerminal() {
+  const main = $("#mainContent");
+  const isAdmin = state.session.role === EXEC_ROLE;
+  main.innerHTML = skeletonCards(2);
+
+  const menuRes = await api("MenuItems.list");
+  posMenuItems = menuRes.success ? menuRes.data : [];
+  posCart = [];
+
+  main.innerHTML = `
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card p-4">
+        ${isAdmin ? `
+          <label class="text-xs text-[var(--text-muted)] block mb-1">Campus (this terminal is ringing up sales for)</label>
+          <input id="posCampusId" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" placeholder="CMP-XXXX" />
+        ` : `<div class="text-xs text-[var(--text-muted)] mb-3">Terminal: <span class="font-mono">${esc(state.session.campus_id)}</span></div>`}
+
+        <label class="text-xs text-[var(--text-muted)] block mb-1">Scan barcode (or type it and press Enter)</label>
+        <input id="posBarcodeInput" class="input-dark rounded px-3 py-2.5 text-base w-full mb-2 font-mono" placeholder="Scan here…" autocomplete="off" />
+        <div id="posScanFeedback" class="text-xs mb-3 min-h-[16px]"></div>
+
+        <div class="text-xs text-[var(--text-muted)] mb-1">Or pick an item manually:</div>
+        <div class="flex flex-wrap gap-2 mb-2" id="posQuickItems"></div>
+      </div>
+
+      <div class="card p-4 flex flex-col">
+        <h3 class="font-display font-semibold text-sm mb-3">Cart</h3>
+        <div id="posCartLines" class="flex-1 space-y-2 mb-3 overflow-y-auto" style="max-height:320px"></div>
+        <div class="border-t border-[var(--line)] pt-3 flex items-center justify-between mb-3">
+          <span class="text-sm text-[var(--text-muted)]">Total</span>
+          <span id="posCartTotal" class="font-mono text-lg font-semibold">PKR 0</span>
+        </div>
+        <button id="posCheckoutBtn" class="btn-accent rounded py-2.5 text-sm font-medium mb-2">Complete Sale</button>
+        <button id="posClearCartBtn" class="btn-ghost rounded py-1.5 text-xs">Clear Cart</button>
+      </div>
+    </div>
+  `;
+
+  // Quick-add buttons for every menu item — useful when there's no scanner handy
+  $("#posQuickItems").innerHTML = posMenuItems.map(m =>
+    `<button class="btn-ghost rounded px-2 py-1 text-xs pos-quick-add" data-id="${esc(m.item_id)}">${esc(m.item_name)} · PKR ${esc(m.retail_price)}</button>`
+  ).join("") || `<span class="text-xs text-[var(--text-muted)]">No menu items found.</span>`;
+
+  document.querySelectorAll(".pos-quick-add").forEach(btn => {
+    btn.addEventListener("click", () => addToCart(btn.dataset.id));
+  });
+
+  const barcodeInput = $("#posBarcodeInput");
+  barcodeInput.focus();
+  barcodeInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      const code = barcodeInput.value.trim();
+      barcodeInput.value = "";
+      if (!code) return;
+      const match = posMenuItems.find(m => m.barcode && String(m.barcode) === code);
+      if (match) {
+        addToCart(match.item_id);
+        showScanFeedback(`✓ ${match.item_name} — PKR ${match.retail_price}`, true);
+      } else {
+        showScanFeedback(`No menu item matches barcode "${code}"`, false);
+      }
+    }
+  });
+  // Keep the scanner input focused even if the salesman clicks elsewhere on the
+  // page — handled by a single delegated listener registered once at boot
+  // (see setupPOSFocusDelegate below), not here, so repeat visits to this
+  // screen never stack duplicate click listeners on the persistent #mainContent node.
+
+  $("#posClearCartBtn").addEventListener("click", () => { posCart = []; renderCart(); });
+  $("#posCheckoutBtn").addEventListener("click", checkoutPOSCart);
+
+  renderCart();
+}
+
+function showScanFeedback(msg, ok) {
+  const el = $("#posScanFeedback");
+  if (!el) return;
+  el.innerHTML = `<span style="color:${ok ? 'var(--pass)' : 'var(--fail)'}">${esc(msg)}</span>`;
+}
+
+function addToCart(itemId) {
+  const item = posMenuItems.find(m => String(m.item_id) === String(itemId));
+  if (!item) return;
+  const existing = posCart.find(c => c.item_id === itemId);
+  if (existing) existing.qty += 1;
+  else posCart.push({ item_id: item.item_id, item_name: item.item_name, unit_price: Number(item.retail_price), qty: 1 });
+  renderCart();
+}
+
+function renderCart() {
+  const linesEl = $("#posCartLines");
+  const totalEl = $("#posCartTotal");
+  if (!linesEl) return;
+
+  if (posCart.length === 0) {
+    linesEl.innerHTML = `<p class="text-xs text-[var(--text-muted)]">Cart is empty — scan or tap an item to begin.</p>`;
+  } else {
+    linesEl.innerHTML = posCart.map((c, i) => `
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <div class="min-w-0">
+          <div class="truncate">${esc(c.item_name)}</div>
+          <div class="text-xs text-[var(--text-muted)] font-mono">PKR ${c.unit_price} × ${c.qty}</div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button class="btn-ghost rounded px-2 py-0.5 text-xs pos-dec" data-i="${i}">−</button>
+          <button class="btn-ghost rounded px-2 py-0.5 text-xs pos-inc" data-i="${i}">+</button>
+          <button class="btn-ghost rounded px-2 py-0.5 text-xs pos-remove" data-i="${i}">${ICONS.x}</button>
+        </div>
+      </div>
+    `).join("");
+    linesEl.querySelectorAll(".pos-inc").forEach(b => b.addEventListener("click", () => { posCart[b.dataset.i].qty++; renderCart(); }));
+    linesEl.querySelectorAll(".pos-dec").forEach(b => b.addEventListener("click", () => { posCart[b.dataset.i].qty = Math.max(1, posCart[b.dataset.i].qty - 1); renderCart(); }));
+    linesEl.querySelectorAll(".pos-remove").forEach(b => b.addEventListener("click", () => { posCart.splice(b.dataset.i, 1); renderCart(); }));
+  }
+
+  const total = posCart.reduce((sum, c) => sum + c.unit_price * c.qty, 0);
+  totalEl.textContent = "PKR " + total.toLocaleString();
+}
+
+async function checkoutPOSCart() {
+  if (posCart.length === 0) { showToast("Cart is empty.", "warning"); return; }
+  const isAdmin = state.session.role === EXEC_ROLE;
+  const campusId = isAdmin ? $("#posCampusId").value.trim() : state.session.campus_id;
+  if (isAdmin && !campusId) { showToast("Enter a campus ID for this terminal first.", "warning"); return; }
+
+  const transactionId = "TXN-" + Date.now().toString(36).toUpperCase();
+  const btn = $("#posCheckoutBtn");
+  btn.disabled = true;
+  btn.textContent = "Processing…";
+
+  let successCount = 0;
+  const warnings = [];
+  for (const line of posCart) {
+    const res = await api("Sales.create", {
+      campus_id: campusId, item_id: line.item_id, qty: line.qty,
+      transaction_id: transactionId, actor_name: state.session.name
+    }, "POST");
+    if (res.success) {
+      successCount++;
+      if (res.data.stock_warning) warnings.push(`${line.item_name}: ${res.data.stock_warning}`);
+    } else {
+      showToast(`${line.item_name}: ${res.error}`, "error");
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Complete Sale";
+
+  if (successCount === posCart.length) {
+    showToast(`Sale complete — ${successCount} item(s), receipt ${transactionId}.`, "success");
+    warnings.forEach(w => showToast(w, "warning"));
+    posCart = [];
+    renderCart();
+  } else if (successCount > 0) {
+    showToast(`${successCount} of ${posCart.length} items rang up — check the errors above.`, "warning");
+  }
+}
+
+/* =================================================================
+   DAILY REGISTER CLOSE — export everything for one day (Sales,
+   Inventory movement, Attendance, Hygiene, Wastage, Expenses) as
+   a PDF report or a multi-sheet Excel workbook.
+================================================================= */
+async function renderDailyClose() {
+  const main = $("#mainContent");
+  const isAdmin = state.session.role === EXEC_ROLE;
+  const today = new Date().toISOString().substring(0, 10);
+
+  main.innerHTML = `
+    <div class="card p-4 mb-4 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="text-xs text-[var(--text-muted)] block mb-1">Date to close</label>
+        <input id="closeDate" type="date" value="${today}" class="input-dark rounded px-3 py-1.5 text-sm" />
+      </div>
+      ${isAdmin ? `
+        <div>
+          <label class="text-xs text-[var(--text-muted)] block mb-1">Campus (blank = all campuses)</label>
+          <input id="closeCampus" class="input-dark rounded px-3 py-1.5 text-sm font-mono" placeholder="CMP-XXXX or blank" />
+        </div>` : ""}
+      <button id="closeLoadBtn" class="btn-accent rounded px-4 py-1.5 text-sm font-medium">Load Day</button>
+      <button id="closeExportPdfBtn" class="btn-ghost rounded px-3 py-1.5 text-sm font-medium hidden flex items-center gap-1.5">${ICONS.download} Export PDF</button>
+      <button id="closeExportXlsxBtn" class="btn-ghost rounded px-3 py-1.5 text-sm font-medium hidden flex items-center gap-1.5">${ICONS.download} Export Excel</button>
+    </div>
+    <div id="closeSummary"></div>
+  `;
+
+  $("#closeLoadBtn").addEventListener("click", loadDailyClose);
+}
+
+let dailyCloseData = null;
+
+async function loadDailyClose() {
+  const date = $("#closeDate").value;
+  const isAdmin = state.session.role === EXEC_ROLE;
+  const campusFilter = isAdmin ? $("#closeCampus").value.trim() : state.session.campus_id;
+  const summaryEl = $("#closeSummary");
+  summaryEl.innerHTML = skeletonTable(6, 4);
+
+  const [salesRes, attRes, hygRes, wstRes, expRes, ledgerRes] = await Promise.all([
+    api("Sales.list", campusFilter ? { campus_id: campusFilter } : {}),
+    api("Attendance.list", campusFilter ? { campus_id: campusFilter } : {}),
+    api("HygieneChecklist.list", campusFilter ? { campus_id: campusFilter } : {}),
+    api("WastageLog.list", campusFilter ? { campus_id: campusFilter } : {}),
+    api("Expenses.list", campusFilter ? { campus_id: campusFilter } : {}),
+    api("InventoryLedger.list", campusFilter ? { location: campusFilter } : {})
+  ]);
+
+  const byDate = (rows, field) => (rows.success ? rows.data : []).filter(r => String(r[field] || "").substring(0, 10) === date);
+
+  const sales = byDate(salesRes, "sale_datetime");
+  const attendance = byDate(attRes, "date");
+  const hygiene = byDate(hygRes, "date");
+  const wastage = byDate(wstRes, "date");
+  const expenses = byDate(expRes, "date");
+  const inventory = byDate(ledgerRes, "batch_date_in");
+
+  const revenue = sales.reduce((s, r) => s + Number(r.qty) * Number(r.unit_price), 0);
+  const expenseTotal = expenses.reduce((s, r) => s + Number(r.amount), 0);
+
+  dailyCloseData = { date, campusFilter, sales, attendance, hygiene, wastage, expenses, inventory, revenue, expenseTotal };
+
+  summaryEl.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      ${statCard("Sales Revenue", "PKR " + revenue.toLocaleString(), "var(--pass)")}
+      ${statCard("Expenses Logged", "PKR " + expenseTotal.toLocaleString(), "var(--fail)")}
+      ${statCard("Sales Transactions", String(sales.length), "var(--accent)")}
+      ${statCard("Attendance Entries", String(attendance.length), "var(--accent)")}
+    </div>
+    <div class="card p-4">
+      <h3 class="font-display font-semibold text-sm mb-2">Sales — ${date}</h3>
+      <table class="data-table w-full text-left text-xs"><thead><tr><th class="py-1">Item</th><th>Qty</th><th>Unit Price</th><th>Campus</th></tr></thead>
+      <tbody>${sales.map(s => `<tr><td class="py-1 font-mono">${esc(s.item_id)}</td><td class="font-mono">${s.qty}</td><td class="font-mono">${s.unit_price}</td><td class="font-mono">${esc(s.campus_id)}</td></tr>`).join("") || `<tr><td colspan="4" class="py-2 text-[var(--text-muted)]">No sales that day.</td></tr>`}</tbody></table>
+    </div>
+  `;
+
+  $("#closeExportPdfBtn").classList.remove("hidden");
+  $("#closeExportXlsxBtn").classList.remove("hidden");
+  $("#closeExportPdfBtn").onclick = exportDailyClosePDF;
+  $("#closeExportXlsxBtn").onclick = exportDailyCloseExcel;
+}
+
+function exportDailyCloseExcel() {
+  if (typeof XLSX === "undefined") { showToast("Excel export library didn't load — check your internet connection and try again.", "error"); return; }
+  const d = dailyCloseData;
+  const wb = XLSX.utils.book_new();
+  const sheets = { Sales: d.sales, Attendance: d.attendance, Hygiene: d.hygiene, Wastage: d.wastage, Expenses: d.expenses, InventoryMovement: d.inventory };
+  Object.keys(sheets).forEach(name => {
+    const ws = XLSX.utils.json_to_sheet(sheets[name].length ? sheets[name] : [{ note: "No records for this date" }]);
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  });
+  XLSX.writeFile(wb, `RegisterClose_${d.date}${d.campusFilter ? "_" + d.campusFilter : ""}.xlsx`);
+  showToast("Excel file downloaded.", "success");
+}
+
+function exportDailyClosePDF() {
+  if (typeof window.jspdf === "undefined") { showToast("PDF export library didn't load — check your internet connection and try again.", "error"); return; }
+  const d = dailyCloseData;
+  const doc = new window.jspdf.jsPDF();
+  doc.setFontSize(16); doc.text("3C Foods — Daily Register Close", 14, 16);
+  doc.setFontSize(10); doc.text(`Date: ${d.date}${d.campusFilter ? "  |  Campus: " + d.campusFilter : "  |  All campuses"}`, 14, 23);
+  doc.text(`Revenue: PKR ${d.revenue.toLocaleString()}   Expenses: PKR ${d.expenseTotal.toLocaleString()}`, 14, 29);
+
+  let y = 36;
+  const addTable = (title, rows, columns) => {
+    doc.setFontSize(12); doc.text(title, 14, y); y += 4;
+    doc.autoTable({ startY: y, head: [columns], body: rows.map(r => columns.map(c => String(r[c] ?? ""))), styles: { fontSize: 7 }, margin: { left: 14, right: 14 } });
+    y = doc.lastAutoTable.finalY + 8;
+    if (y > 260) { doc.addPage(); y = 16; }
+  };
+  addTable("Sales", d.sales, ["sale_id", "campus_id", "item_id", "qty", "unit_price"]);
+  addTable("Attendance", d.attendance, ["employee_id", "campus_id", "status"]);
+  addTable("Hygiene Checklist", d.hygiene, ["campus_id", "overall_status", "submitted_by"]);
+  addTable("Wastage", d.wastage, ["campus_id", "item_id", "qty_wasted", "reason"]);
+  addTable("Expenses", d.expenses, ["category", "campus_id", "amount"]);
+
+  doc.save(`RegisterClose_${d.date}${d.campusFilter ? "_" + d.campusFilter : ""}.pdf`);
+  showToast("PDF downloaded.", "success");
+}
+
+/* =================================================================
+   MONTH-END CLOSING (SuperAdmin only)
+================================================================= */
+async function renderMonthClose() {
+  const main = $("#mainContent");
+  const thisMonth = new Date().toISOString().substring(0, 7);
+  main.innerHTML = `
+    <div class="card p-4 mb-4 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="text-xs text-[var(--text-muted)] block mb-1">Month</label>
+        <input id="closeMonthInput" type="month" value="${thisMonth}" class="input-dark rounded px-3 py-1.5 text-sm" />
+      </div>
+      <button id="closeMonthComputeBtn" class="btn-accent rounded px-4 py-1.5 text-sm font-medium">Compute Totals</button>
+    </div>
+    <div id="monthCloseResult"></div>
+    <p class="text-xs text-[var(--text-muted)] mt-3">Note: closing a month records a permanent snapshot — it does not yet block new entries from being backdated into that month.</p>
+  `;
+  $("#closeMonthComputeBtn").addEventListener("click", computeMonthClose);
+}
+
+async function computeMonthClose() {
+  const month = $("#closeMonthInput").value; // "YYYY-MM"
+  const resultEl = $("#monthCloseResult");
+  resultEl.innerHTML = skeletonCards(3);
+
+  const [salesRes, expRes, recipesRes, rawRes] = await Promise.all([
+    api("Sales.list"), api("Expenses.list"), api("Recipes.list"), api("RawMaterials.list")
+  ]);
+  const sales = (salesRes.success ? salesRes.data : []).filter(s => String(s.sale_datetime || "").substring(0, 7) === month);
+  const expenses = (expRes.success ? expRes.data : []).filter(e => String(e.date || "").substring(0, 7) === month);
+  const recipes = recipesRes.success ? recipesRes.data : [];
+  const rawMaterials = rawRes.success ? rawRes.data : [];
+
+  const revenue = sales.reduce((s, r) => s + Number(r.qty) * Number(r.unit_price), 0);
+  const expenseTotal = expenses.reduce((s, r) => s + Number(r.amount), 0);
+  const cogsEstimate = sales.reduce((sum, sale) => {
+    const lines = recipes.filter(r => String(r.item_id) === String(sale.item_id));
+    const perUnitCost = lines.reduce((c, line) => {
+      const rm = rawMaterials.find(m => String(m.raw_material_id) === String(line.raw_material_id));
+      return c + Number(line.qty_per_unit) * (rm ? Number(rm.unit_cost) || 0 : 0);
+    }, 0);
+    return sum + perUnitCost * Number(sale.qty);
+  }, 0);
+  const netProfit = revenue - expenseTotal - cogsEstimate;
+
+  resultEl.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      ${statCard("Revenue", "PKR " + revenue.toLocaleString(), "var(--pass)")}
+      ${statCard("Expenses", "PKR " + expenseTotal.toLocaleString(), "var(--fail)")}
+      ${statCard("Est. COGS", "PKR " + cogsEstimate.toLocaleString(), "var(--accent)")}
+      ${statCard("Net Profit", "PKR " + netProfit.toLocaleString(), netProfit >= 0 ? "var(--pass)" : "var(--fail)")}
+    </div>
+    <div class="card p-4">
+      <button id="closeMonthConfirmBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Close ${esc(month)}</button>
+      <span class="text-xs text-[var(--text-muted)] ml-2">This locks in a permanent record — each month can only be closed once.</span>
+    </div>
+  `;
+
+  $("#closeMonthConfirmBtn").addEventListener("click", async () => {
+    const ok = await showConfirm(`Close the books for ${month}? This is permanent and can't be edited afterward.`);
+    if (!ok) return;
+    const res = await api("MonthlyClosing.close", {
+      month, total_revenue: revenue, total_expenses: expenseTotal,
+      total_cogs_estimate: cogsEstimate, net_profit: netProfit
+    }, "POST");
+    if (res.success) showToast(`${month} closed successfully.`, "success");
+    else showToast(res.error, "error");
+  });
+}
+
+/* =================================================================
+   BULK SETUP WIZARD — quickly create your 7 campuses + up to 10 staff
+================================================================= */
+async function renderBulkSetup() {
+  const main = $("#mainContent");
+  main.innerHTML = `
+    <div class="card p-4 mb-4">
+      <h3 class="font-display font-semibold text-sm mb-1">Step 1 — Campuses</h3>
+      <p class="text-xs text-[var(--text-muted)] mb-3">Fill in the rows you need (leave the rest blank) and submit. You can add more later from the Campuses data table.</p>
+      <div id="bulkCampusRows" class="space-y-2 mb-3"></div>
+      <button id="bulkAddCampusRowBtn" class="btn-ghost rounded px-2 py-1 text-xs mb-3">+ Add another row</button>
+      <button id="bulkSubmitCampusesBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Create Campuses</button>
+    </div>
+    <div class="card p-4">
+      <h3 class="font-display font-semibold text-sm mb-1">Step 2 — Staff logins</h3>
+      <p class="text-xs text-[var(--text-muted)] mb-3">Each row creates one login. Use "CampusSupervisor" for the 7–10 campus terminals, and match the Campus ID to what you created above (check the Campuses table for the generated IDs).</p>
+      <div id="bulkUserRows" class="space-y-2 mb-3"></div>
+      <button id="bulkAddUserRowBtn" class="btn-ghost rounded px-2 py-1 text-xs mb-3">+ Add another row</button>
+      <button id="bulkSubmitUsersBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Create Users</button>
+    </div>
+  `;
+
+  const campusRowsEl = $("#bulkCampusRows");
+  const addCampusRow = () => {
+    const row = document.createElement("div");
+    row.className = "grid grid-cols-4 gap-2";
+    row.innerHTML = `
+      <input placeholder="Campus name" class="input-dark rounded px-2 py-1.5 text-xs bc-name" />
+      <input placeholder="Grade tier" class="input-dark rounded px-2 py-1.5 text-xs bc-tier" />
+      <input placeholder="Cluster" class="input-dark rounded px-2 py-1.5 text-xs bc-cluster" />
+      <input placeholder="Enrollment" type="number" class="input-dark rounded px-2 py-1.5 text-xs bc-enroll" />
+    `;
+    campusRowsEl.appendChild(row);
+  };
+  for (let i = 0; i < 7; i++) addCampusRow();
+  $("#bulkAddCampusRowBtn").addEventListener("click", addCampusRow);
+
+  $("#bulkSubmitCampusesBtn").addEventListener("click", async () => {
+    const rows = Array.from(campusRowsEl.children);
+    let created = 0;
+    for (const row of rows) {
+      const name = row.querySelector(".bc-name").value.trim();
+      if (!name) continue;
+      const payload = {
+        campus_name: name,
+        grade_tier: row.querySelector(".bc-tier").value.trim(),
+        cluster: row.querySelector(".bc-cluster").value.trim(),
+        enrollment: row.querySelector(".bc-enroll").value,
+        actor_name: state.session.name
+      };
+      const res = await api("Campuses.create", payload, "POST");
+      if (res.success) created++; else showToast(`${name}: ${res.error}`, "error");
+    }
+    showToast(`${created} campus(es) created.`, created > 0 ? "success" : "warning");
+  });
+
+  const userRowsEl = $("#bulkUserRows");
+  const addUserRow = () => {
+    const row = document.createElement("div");
+    row.className = "grid grid-cols-4 gap-2";
+    row.innerHTML = `
+      <input placeholder="Name" class="input-dark rounded px-2 py-1.5 text-xs bu-name" />
+      <select class="input-dark rounded px-2 py-1.5 text-xs bu-role">
+        <option value="CampusSupervisor" selected>CampusSupervisor</option>
+        <option value="SuperAdmin">SuperAdmin</option>
+      </select>
+      <input placeholder="Campus ID (if supervisor)" class="input-dark rounded px-2 py-1.5 text-xs font-mono bu-campus" />
+      <input placeholder="PIN" type="password" inputmode="numeric" class="input-dark rounded px-2 py-1.5 text-xs bu-pin" />
+    `;
+    userRowsEl.appendChild(row);
+  };
+  for (let i = 0; i < 10; i++) addUserRow();
+  $("#bulkAddUserRowBtn").addEventListener("click", addUserRow);
+
+  $("#bulkSubmitUsersBtn").addEventListener("click", async () => {
+    const rows = Array.from(userRowsEl.children);
+    let created = 0;
+    for (const row of rows) {
+      const name = row.querySelector(".bu-name").value.trim();
+      const pin = row.querySelector(".bu-pin").value.trim();
+      if (!name || !pin) continue;
+      const payload = {
+        name, role: row.querySelector(".bu-role").value,
+        campus_id: row.querySelector(".bu-campus").value.trim(),
+        pin, active: true, actor_name: state.session.name
+      };
+      const res = await api("Users.create", payload, "POST");
+      if (res.success) created++; else showToast(`${name}: ${res.error}`, "error");
+    }
+    showToast(`${created} user(s) created.`, created > 0 ? "success" : "warning");
+  });
+}
+
+/* =================================================================
+   DANGER ZONE — password-protected Clear All (Transactional) Data
+================================================================= */
+async function renderDangerZone() {
+  const main = $("#mainContent");
+  main.innerHTML = `
+    <div class="card p-5 max-w-lg" style="border-color:rgba(193,72,59,0.4)">
+      <h3 class="font-display font-semibold text-sm mb-2" style="color:var(--fail)">Clear All Transactional Data</h3>
+      <p class="text-xs text-[var(--text-muted)] mb-4">
+        This permanently wipes Sales, Inventory Ledger, POS Audit, Expenses, Hygiene Checklist, Attendance,
+        Wastage, and Cold-Chain records. It does <strong>not</strong> touch Users, Campuses, Menu Items, Recipes,
+        Raw Materials, or the Activity Log. This cannot be undone.
+      </p>
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Re-enter your PIN</label>
+      <input id="dangerPin" type="password" inputmode="numeric" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Type exactly: DELETE ALL DATA</label>
+      <input id="dangerPhrase" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4 font-mono" placeholder="DELETE ALL DATA" />
+      <div id="dangerResult" class="text-sm mb-3"></div>
+      <button id="dangerSubmitBtn" class="rounded py-2.5 text-sm font-medium w-full" style="background:var(--fail); color:white">Wipe Transactional Data</button>
+    </div>
+  `;
+
+  $("#dangerSubmitBtn").addEventListener("click", async () => {
+    const pin = $("#dangerPin").value;
+    const phrase = $("#dangerPhrase").value;
+    if (phrase !== "DELETE ALL DATA") { showToast('Phrase must exactly match "DELETE ALL DATA".', "error"); return; }
+    const ok = await showConfirm("This is your last chance to back out. Really wipe all transactional data?");
+    if (!ok) return;
+    const res = await api("System.clearAllData", { pin, confirmation_phrase: phrase, actor_name: state.session.name }, "POST");
+    const el = $("#dangerResult");
+    if (res.success) {
+      el.innerHTML = `<div class="px-3 py-2 rounded badge-pass">Cleared: ${res.data.cleared.join(", ")}</div>`;
+      showToast("Transactional data wiped.", "success");
+    } else {
+      el.innerHTML = `<div class="px-3 py-2 rounded badge-fail">${esc(res.error)}</div>`;
+    }
+  });
+}
+
+/* =================================================================
    GENERIC TABLE VIEW (CRUD for generic tables, read-only otherwise)
 ================================================================= */
 
@@ -1503,6 +2009,16 @@ document.querySelectorAll("#themeToggleBtn, .standalone-theme-toggle").forEach(b
 
 // Apply saved theme immediately (before boot), so there's no flash of the wrong theme
 applyTheme(localStorage.getItem(LS_KEYS.THEME) || "dark");
+
+// Registered exactly once — keeps the POS barcode scanner input focused
+// whenever the POS Terminal is the active module, without stacking a new
+// listener every time someone navigates to that screen.
+document.getElementById("mainContent").addEventListener("click", e => {
+  if (state.activeModule !== "pos") return;
+  if (e.target.closest("button, input, select")) return;
+  const barcodeInput = document.getElementById("posBarcodeInput");
+  if (barcodeInput) barcodeInput.focus();
+});
 
 /* =================================================================
    BOOT
