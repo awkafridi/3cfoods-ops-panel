@@ -437,14 +437,15 @@ const NAV_GROUPS_ADMIN = [
   { title: "Overview", items: [ ["dashboard","Dashboard"], ["posaudit","POS Audit Board"] ] },
   { title: "Point of Sale", items: [ ["pos","POS Terminal"], ["dailyClose","Daily Register Close"] ] },
   { title: "Operations", items: [ ["dispatch","Morning Dispatch"], ["wastage","Log Wastage"] ] },
-  { title: "Executive", items: [ ["monthClose","Month-End Closing"], ["bulkSetup","Setup Wizard"], ["dangerZone","Danger Zone"] ] },
+  { title: "Executive", items: [ ["monthClose","Month-End Closing"], ["bulkSetup","Setup Wizard"] ] },
   { title: "Data", items: [
       ["Campuses","Campuses"], ["MenuItems","Menu Items"], ["Recipes","Recipes"],
       ["RawMaterials","Raw Materials"], ["InventoryLedger","Inventory Ledger"], ["ColdChainLog","Cold-Chain Log"],
       ["Sales","Sales"], ["Expenses","Expenses"], ["HygieneChecklist","Hygiene Checklist"],
       ["Attendance","Attendance"], ["WastageLog","Wastage Log"], ["VendorInvoices","Vendor Ledger"],
       ["SchoolCalendar","School Calendar"], ["Users","Users"], ["MonthlyClosing","Monthly Closings"], ["ActivityLog","Activity Log"]
-  ]}
+  ]},
+  { title: "", items: [ ["settings","Settings"] ] }
 ];
 
 // A campus-badge login only ever sees and touches its own campus — enforced
@@ -457,7 +458,8 @@ const NAV_GROUPS_CAMPUS = [
       ["MenuItems","Menu Items"], ["RawMaterials","Raw Materials"], ["Sales","My Sales"],
       ["Attendance","Attendance"], ["HygieneChecklist","Hygiene Checklist"],
       ["Expenses","Expenses"], ["SchoolCalendar","School Calendar"]
-  ]}
+  ]},
+  { title: "", items: [ ["settings","Settings"] ] }
 ];
 
 function currentNavGroups() {
@@ -670,10 +672,16 @@ function renderNav() {
   const nav = $("#sideNav");
   nav.innerHTML = "";
   currentNavGroups().forEach(group => {
-    const h = document.createElement("div");
-    h.className = "px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)] font-mono";
-    h.textContent = group.title;
-    nav.appendChild(h);
+    if (group.title) {
+      const h = document.createElement("div");
+      h.className = "px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)] font-mono";
+      h.textContent = group.title;
+      nav.appendChild(h);
+    } else {
+      const spacer = document.createElement("div");
+      spacer.className = "border-t border-[var(--line)] mt-2 pt-2";
+      nav.appendChild(spacer);
+    }
     group.items.forEach(([key, label]) => {
       const btn = document.createElement("button");
       btn.className = "nav-item w-full text-left px-4 py-2 text-sm transition-colors";
@@ -734,7 +742,7 @@ function setModule(key) {
     dashboard: "Dashboard", posaudit: "POS Audit Board", dispatch: "Morning Dispatch",
     wastage: "Log Wastage", sale: "Log a Sale (manual)", posSubmit: "Submit POS Audit",
     pos: "POS Terminal", dailyClose: "Daily Register Close", monthClose: "Month-End Closing",
-    bulkSetup: "Setup Wizard", dangerZone: "Danger Zone"
+    bulkSetup: "Setup Wizard", settings: "Settings"
   };
   $("#pageTitle").textContent = titles[key] || (TABLES[key] ? TABLES[key].label : key);
   const main = $("#mainContent");
@@ -752,7 +760,7 @@ function setModule(key) {
   else if (key === "dailyClose") renderDailyClose();
   else if (key === "monthClose") renderMonthClose();
   else if (key === "bulkSetup") renderBulkSetup();
-  else if (key === "dangerZone") renderDangerZone();
+  else if (key === "settings") renderSettings();
   else if (TABLES[key]) renderGenericTable(key);
 }
 
@@ -1413,6 +1421,7 @@ async function renderDailyClose() {
       <button id="closeLoadBtn" class="btn-accent rounded px-4 py-1.5 text-sm font-medium">Load Day</button>
       <button id="closeExportPdfBtn" class="btn-ghost rounded px-3 py-1.5 text-sm font-medium hidden flex items-center gap-1.5">${ICONS.download} Export PDF</button>
       <button id="closeExportXlsxBtn" class="btn-ghost rounded px-3 py-1.5 text-sm font-medium hidden flex items-center gap-1.5">${ICONS.download} Export Excel</button>
+      <button id="closeShareWhatsappBtn" class="btn-ghost rounded px-3 py-1.5 text-sm font-medium hidden">Share via WhatsApp</button>
     </div>
     <div id="closeSummary"></div>
   `;
@@ -1429,13 +1438,14 @@ async function loadDailyClose() {
   const summaryEl = $("#closeSummary");
   summaryEl.innerHTML = skeletonTable(6, 4);
 
-  const [salesRes, attRes, hygRes, wstRes, expRes, ledgerRes] = await Promise.all([
+  const [salesRes, attRes, hygRes, wstRes, expRes, ledgerRes, rawRes] = await Promise.all([
     api("Sales.list", campusFilter ? { campus_id: campusFilter } : {}),
     api("Attendance.list", campusFilter ? { campus_id: campusFilter } : {}),
     api("HygieneChecklist.list", campusFilter ? { campus_id: campusFilter } : {}),
     api("WastageLog.list", campusFilter ? { campus_id: campusFilter } : {}),
     api("Expenses.list", campusFilter ? { campus_id: campusFilter } : {}),
-    api("InventoryLedger.list", campusFilter ? { location: campusFilter } : {})
+    api("InventoryLedger.list", campusFilter ? { location: campusFilter } : {}),
+    api("RawMaterials.list")
   ]);
 
   const byDate = (rows, field) => (rows.success ? rows.data : []).filter(r => String(r[field] || "").substring(0, 10) === date);
@@ -1446,11 +1456,13 @@ async function loadDailyClose() {
   const wastage = byDate(wstRes, "date");
   const expenses = byDate(expRes, "date");
   const inventory = byDate(ledgerRes, "batch_date_in");
+  const rawMaterials = rawRes.success ? rawRes.data : [];
+  const lowStock = rawMaterials.filter(r => Number(r.current_stock_central) <= Number(r.reorder_threshold));
 
   const revenue = sales.reduce((s, r) => s + Number(r.qty) * Number(r.unit_price), 0);
   const expenseTotal = expenses.reduce((s, r) => s + Number(r.amount), 0);
 
-  dailyCloseData = { date, campusFilter, sales, attendance, hygiene, wastage, expenses, inventory, revenue, expenseTotal };
+  dailyCloseData = { date, campusFilter, sales, attendance, hygiene, wastage, expenses, inventory, rawMaterials, lowStock, revenue, expenseTotal };
 
   summaryEl.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -1468,15 +1480,54 @@ async function loadDailyClose() {
 
   $("#closeExportPdfBtn").classList.remove("hidden");
   $("#closeExportXlsxBtn").classList.remove("hidden");
+  $("#closeShareWhatsappBtn").classList.remove("hidden");
   $("#closeExportPdfBtn").onclick = exportDailyClosePDF;
   $("#closeExportXlsxBtn").onclick = exportDailyCloseExcel;
+  $("#closeShareWhatsappBtn").onclick = shareDailyCloseViaWhatsApp;
+}
+
+// There is no free way to make a PDF silently attach itself inside a WhatsApp
+// message from a plain web page — that requires a paid WhatsApp Business API
+// account. This does the honest, working version: downloads the PDF, then
+// opens WhatsApp pre-filled with a full text summary of the day, so the only
+// manual step left is tapping the paperclip to attach the file that just downloaded.
+function shareDailyCloseViaWhatsApp() {
+  const d = dailyCloseData;
+  const number = localStorage.getItem(LS_WHATSAPP_KEY) || "";
+  if (!number) {
+    showToast("Set a WhatsApp number first, in Settings.", "warning");
+    return;
+  }
+  exportDailyClosePDF();
+
+  const lines = [
+    `*3C Foods — Daily Register Close*`,
+    `Date: ${d.date}${d.campusFilter ? " | Campus: " + d.campusFilter : " | All campuses"}`,
+    ``,
+    `Revenue: PKR ${d.revenue.toLocaleString()}`,
+    `Expenses: PKR ${d.expenseTotal.toLocaleString()}`,
+    `Sales transactions: ${d.sales.length}`,
+    `Attendance entries: ${d.attendance.length}`,
+    ``,
+    d.lowStock.length > 0
+      ? `⚠ Low stock (${d.lowStock.length}): ${d.lowStock.map(r => r.material_name).join(", ")}`
+      : `Stock levels: all above reorder threshold`,
+    ``,
+    `(PDF downloaded separately — attach it to this chat)`
+  ];
+  const url = `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
+  window.open(url, "_blank");
+  showToast("PDF downloaded — attach it in the WhatsApp chat that just opened.", "success");
 }
 
 function exportDailyCloseExcel() {
   if (typeof XLSX === "undefined") { showToast("Excel export library didn't load — check your internet connection and try again.", "error"); return; }
   const d = dailyCloseData;
   const wb = XLSX.utils.book_new();
-  const sheets = { Sales: d.sales, Attendance: d.attendance, Hygiene: d.hygiene, Wastage: d.wastage, Expenses: d.expenses, InventoryMovement: d.inventory };
+  const sheets = {
+    Sales: d.sales, Attendance: d.attendance, Hygiene: d.hygiene, Wastage: d.wastage,
+    Expenses: d.expenses, InventoryMovement: d.inventory, RemainingStock: d.rawMaterials
+  };
   Object.keys(sheets).forEach(name => {
     const ws = XLSX.utils.json_to_sheet(sheets[name].length ? sheets[name] : [{ note: "No records for this date" }]);
     XLSX.utils.book_append_sheet(wb, ws, name);
@@ -1505,6 +1556,7 @@ function exportDailyClosePDF() {
   addTable("Hygiene Checklist", d.hygiene, ["campus_id", "overall_status", "submitted_by"]);
   addTable("Wastage", d.wastage, ["campus_id", "item_id", "qty_wasted", "reason"]);
   addTable("Expenses", d.expenses, ["category", "campus_id", "amount"]);
+  addTable("Remaining Stock (Central)", d.rawMaterials, ["material_name", "current_stock_central", "reorder_threshold", "unit"]);
 
   doc.save(`RegisterClose_${d.date}${d.campusFilter ? "_" + d.campusFilter : ""}.pdf`);
   showToast("PDF downloaded.", "success");
@@ -1583,9 +1635,43 @@ async function computeMonthClose() {
 /* =================================================================
    BULK SETUP WIZARD — quickly create your 7 campuses + up to 10 staff
 ================================================================= */
+// Real data from your own canteen delivery plan + ERP spec documents —
+// not invented placeholders. Quick Seed just pre-fills these into the rows
+// below so you can review/adjust before clicking Create, rather than typing
+// all of it by hand.
+const SEED_CAMPUSES = [
+  { name: "Gulshan A-Level Campus", tier: "A-Level", cluster: "GULSHAN CORE", enroll: "" },
+  { name: "Gulshan Junior Campus", tier: "Junior", cluster: "GULSHAN CORE", enroll: "" },
+  { name: "Gulshan C Girl Campus", tier: "Girls", cluster: "GULSHAN CORE", enroll: "" },
+  { name: "Gulshan-e-Iqbal A Campus (Boys)", tier: "Boys", cluster: "GULSHAN CORE", enroll: "" },
+  { name: "North Nazimabad Girls Campus", tier: "Girls", cluster: "NAZIMABAD", enroll: "" },
+  { name: "North Nazimabad Boys Campus", tier: "Boys", cluster: "NAZIMABAD", enroll: "" },
+  { name: "Gulshan-e-Maymar Campus", tier: "Mixed", cluster: "OUTER NORTH", enroll: "" }
+];
+const SEED_MENU_ITEMS = [
+  { name: "Zinger Burger", category: "Hot Food", grams: 70, price: 280 },
+  { name: "Chicken Burger", category: "Hot Food", grams: 60, price: 200 },
+  { name: "Mini Burger", category: "Hot Food", grams: 40, price: 100 },
+  { name: "Zinger Roll", category: "Hot Food", grams: 160, price: 160 },
+  { name: "Paratha Roll", category: "Hot Food", grams: 150, price: 180 },
+  { name: "French Fries", category: "Hot Food", grams: 100, price: 100 },
+  { name: 'Mini Pizza 4"', category: "Hot Food", grams: "", price: 120 },
+  { name: "Spaghetti/Pasta", category: "Hot Food", grams: 125, price: 180 },
+  { name: "Biryani/Fried Rice", category: "Hot Food", grams: 300, price: 220 },
+  { name: "Fresh Juice", category: "Beverages", grams: "", price: 150 },
+  { name: "Mineral Water 500ml", category: "Beverages", grams: "", price: 80 },
+  { name: "Vending Coffee", category: "Beverages", grams: "", price: 100 },
+  { name: "Vending Tea", category: "Beverages", grams: "", price: 90 }
+];
+
 async function renderBulkSetup() {
   const main = $("#mainContent");
   main.innerHTML = `
+    <div class="card p-4 mb-4">
+      <button id="bulkQuickSeedBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Quick Seed: fill in your real 7 campuses + menu</button>
+      <p class="text-xs text-[var(--text-muted)] mt-2">Pulled from your canteen delivery plan and ERP spec documents. Review the rows below before creating — nothing is submitted until you click each section's Create button.</p>
+    </div>
+
     <div class="card p-4 mb-4">
       <h3 class="font-display font-semibold text-sm mb-1">Step 1 — Campuses</h3>
       <p class="text-xs text-[var(--text-muted)] mb-3">Fill in the rows you need (leave the rest blank) and submit. You can add more later from the Campuses data table.</p>
@@ -1593,8 +1679,17 @@ async function renderBulkSetup() {
       <button id="bulkAddCampusRowBtn" class="btn-ghost rounded px-2 py-1 text-xs mb-3">+ Add another row</button>
       <button id="bulkSubmitCampusesBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Create Campuses</button>
     </div>
+
+    <div class="card p-4 mb-4">
+      <h3 class="font-display font-semibold text-sm mb-1">Step 2 — Menu Items</h3>
+      <p class="text-xs text-[var(--text-muted)] mb-3">Barcode is optional — add it later once you print/assign barcodes for POS scanning.</p>
+      <div id="bulkMenuRows" class="space-y-2 mb-3"></div>
+      <button id="bulkAddMenuRowBtn" class="btn-ghost rounded px-2 py-1 text-xs mb-3">+ Add another row</button>
+      <button id="bulkSubmitMenuBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Create Menu Items</button>
+    </div>
+
     <div class="card p-4">
-      <h3 class="font-display font-semibold text-sm mb-1">Step 2 — Staff logins</h3>
+      <h3 class="font-display font-semibold text-sm mb-1">Step 3 — Staff logins</h3>
       <p class="text-xs text-[var(--text-muted)] mb-3">Each row creates one login. Use "CampusSupervisor" for the 7–10 campus terminals, and match the Campus ID to what you created above (check the Campuses table for the generated IDs).</p>
       <div id="bulkUserRows" class="space-y-2 mb-3"></div>
       <button id="bulkAddUserRowBtn" class="btn-ghost rounded px-2 py-1 text-xs mb-3">+ Add another row</button>
@@ -1603,19 +1698,19 @@ async function renderBulkSetup() {
   `;
 
   const campusRowsEl = $("#bulkCampusRows");
-  const addCampusRow = () => {
+  const addCampusRow = (seed) => {
     const row = document.createElement("div");
     row.className = "grid grid-cols-4 gap-2";
     row.innerHTML = `
-      <input placeholder="Campus name" class="input-dark rounded px-2 py-1.5 text-xs bc-name" />
-      <input placeholder="Grade tier" class="input-dark rounded px-2 py-1.5 text-xs bc-tier" />
-      <input placeholder="Cluster" class="input-dark rounded px-2 py-1.5 text-xs bc-cluster" />
-      <input placeholder="Enrollment" type="number" class="input-dark rounded px-2 py-1.5 text-xs bc-enroll" />
+      <input placeholder="Campus name" class="input-dark rounded px-2 py-1.5 text-xs bc-name" value="${seed ? esc(seed.name) : ""}" />
+      <input placeholder="Grade tier" class="input-dark rounded px-2 py-1.5 text-xs bc-tier" value="${seed ? esc(seed.tier) : ""}" />
+      <input placeholder="Cluster" class="input-dark rounded px-2 py-1.5 text-xs bc-cluster" value="${seed ? esc(seed.cluster) : ""}" />
+      <input placeholder="Enrollment" type="number" class="input-dark rounded px-2 py-1.5 text-xs bc-enroll" value="${seed ? esc(seed.enroll) : ""}" />
     `;
     campusRowsEl.appendChild(row);
   };
   for (let i = 0; i < 7; i++) addCampusRow();
-  $("#bulkAddCampusRowBtn").addEventListener("click", addCampusRow);
+  $("#bulkAddCampusRowBtn").addEventListener("click", () => addCampusRow());
 
   $("#bulkSubmitCampusesBtn").addEventListener("click", async () => {
     const rows = Array.from(campusRowsEl.children);
@@ -1634,6 +1729,50 @@ async function renderBulkSetup() {
       if (res.success) created++; else showToast(`${name}: ${res.error}`, "error");
     }
     showToast(`${created} campus(es) created.`, created > 0 ? "success" : "warning");
+  });
+
+  const menuRowsEl = $("#bulkMenuRows");
+  const addMenuRow = (seed) => {
+    const row = document.createElement("div");
+    row.className = "grid grid-cols-5 gap-2";
+    row.innerHTML = `
+      <input placeholder="Item name" class="input-dark rounded px-2 py-1.5 text-xs bm-name" value="${seed ? esc(seed.name) : ""}" />
+      <input placeholder="Category" class="input-dark rounded px-2 py-1.5 text-xs bm-category" value="${seed ? esc(seed.category) : ""}" />
+      <input placeholder="Portion (g)" type="number" class="input-dark rounded px-2 py-1.5 text-xs bm-grams" value="${seed ? esc(seed.grams) : ""}" />
+      <input placeholder="Retail price" type="number" class="input-dark rounded px-2 py-1.5 text-xs bm-price" value="${seed ? esc(seed.price) : ""}" />
+      <input placeholder="Barcode (optional)" class="input-dark rounded px-2 py-1.5 text-xs font-mono bm-barcode" />
+    `;
+    menuRowsEl.appendChild(row);
+  };
+  for (let i = 0; i < 13; i++) addMenuRow();
+  $("#bulkAddMenuRowBtn").addEventListener("click", () => addMenuRow());
+
+  $("#bulkSubmitMenuBtn").addEventListener("click", async () => {
+    const rows = Array.from(menuRowsEl.children);
+    let created = 0;
+    for (const row of rows) {
+      const name = row.querySelector(".bm-name").value.trim();
+      if (!name) continue;
+      const payload = {
+        item_name: name,
+        category: row.querySelector(".bm-category").value.trim(),
+        portion_grams: row.querySelector(".bm-grams").value,
+        retail_price: row.querySelector(".bm-price").value,
+        barcode: row.querySelector(".bm-barcode").value.trim(),
+        actor_name: state.session.name
+      };
+      const res = await api("MenuItems.create", payload, "POST");
+      if (res.success) created++; else showToast(`${name}: ${res.error}`, "error");
+    }
+    showToast(`${created} menu item(s) created.`, created > 0 ? "success" : "warning");
+  });
+
+  $("#bulkQuickSeedBtn").addEventListener("click", () => {
+    campusRowsEl.innerHTML = "";
+    SEED_CAMPUSES.forEach(addCampusRow);
+    menuRowsEl.innerHTML = "";
+    SEED_MENU_ITEMS.forEach(addMenuRow);
+    showToast("Filled in 7 campuses and 13 menu items — review, then click each Create button.", "success");
   });
 
   const userRowsEl = $("#bulkUserRows");
@@ -1674,17 +1813,48 @@ async function renderBulkSetup() {
 }
 
 /* =================================================================
-   DANGER ZONE — password-protected Clear All (Transactional) Data
+   SETTINGS — everyone gets "My Account" (change PIN) + WhatsApp export
+   number. SuperAdmins additionally get Backend Connection + Danger Zone.
 ================================================================= */
-async function renderDangerZone() {
+const LS_WHATSAPP_KEY = "3cfoods_whatsapp_number";
+
+async function renderSettings() {
   const main = $("#mainContent");
+  const isAdmin = state.session.role === EXEC_ROLE;
+  const savedNumber = localStorage.getItem(LS_WHATSAPP_KEY) || "";
+
   main.innerHTML = `
+    <div class="card p-5 max-w-lg mb-4">
+      <h3 class="font-display font-semibold text-sm mb-3">My Account</h3>
+      <div class="text-xs text-[var(--text-muted)] mb-3">Logged in as <strong>${esc(state.session.name)}</strong> (${esc(state.session.role)})</div>
+      <label class="text-xs text-[var(--text-muted)] block mb-1">Current PIN</label>
+      <input id="settPinOld" type="password" inputmode="numeric" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" />
+      <label class="text-xs text-[var(--text-muted)] block mb-1">New PIN</label>
+      <input id="settPinNew" type="password" inputmode="numeric" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4 font-mono" />
+      <div id="settPinResult" class="text-sm mb-2"></div>
+      <button id="settPinBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Change PIN</button>
+    </div>
+
+    <div class="card p-5 max-w-lg mb-4">
+      <h3 class="font-display font-semibold text-sm mb-3">WhatsApp Export Number</h3>
+      <p class="text-xs text-[var(--text-muted)] mb-3">Used by the "Share via WhatsApp" button on Daily Register Close. Include country code, digits only (e.g. 923001234567 for Pakistan).</p>
+      <input id="settWhatsapp" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" value="${esc(savedNumber)}" placeholder="923001234567" />
+      <button id="settWhatsappSaveBtn" class="btn-accent rounded px-4 py-2 text-sm font-medium">Save Number</button>
+    </div>
+
+    ${isAdmin ? `
+    <div class="card p-5 max-w-lg mb-4">
+      <h3 class="font-display font-semibold text-sm mb-3">Backend Connection</h3>
+      <p class="text-xs text-[var(--text-muted)] mb-2 font-mono break-all">${esc(state.apiUrl)}</p>
+      <button id="settReconnectBtn" class="btn-ghost rounded px-4 py-2 text-sm font-medium">Reconnect / Change Backend URL</button>
+    </div>
+
     <div class="card p-5 max-w-lg" style="border-color:rgba(193,72,59,0.4)">
-      <h3 class="font-display font-semibold text-sm mb-2" style="color:var(--fail)">Clear All Transactional Data</h3>
+      <h3 class="font-display font-semibold text-sm mb-2" style="color:var(--fail)">Danger Zone — Clear All Transactional Data</h3>
       <p class="text-xs text-[var(--text-muted)] mb-4">
-        This permanently wipes Sales, Inventory Ledger, POS Audit, Expenses, Hygiene Checklist, Attendance,
-        Wastage, and Cold-Chain records. It does <strong>not</strong> touch Users, Campuses, Menu Items, Recipes,
-        Raw Materials, or the Activity Log. This cannot be undone.
+        Permanently wipes Sales, Inventory Ledger, POS Audit, Expenses, Hygiene Checklist, Attendance, Wastage,
+        and Cold-Chain records. Does <strong>not</strong> touch Users, Campuses, Menu Items, Recipes, Raw Materials,
+        or the Activity Log. This cannot be undone.
       </p>
       <label class="text-xs text-[var(--text-muted)] block mb-1">Re-enter your PIN</label>
       <input id="dangerPin" type="password" inputmode="numeric" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-3 font-mono" />
@@ -1692,24 +1862,52 @@ async function renderDangerZone() {
       <input id="dangerPhrase" class="input-dark rounded px-3 py-1.5 text-sm w-full mb-4 font-mono" placeholder="DELETE ALL DATA" />
       <div id="dangerResult" class="text-sm mb-3"></div>
       <button id="dangerSubmitBtn" class="rounded py-2.5 text-sm font-medium w-full" style="background:var(--fail); color:white">Wipe Transactional Data</button>
-    </div>
+    </div>` : ""}
   `;
 
-  $("#dangerSubmitBtn").addEventListener("click", async () => {
-    const pin = $("#dangerPin").value;
-    const phrase = $("#dangerPhrase").value;
-    if (phrase !== "DELETE ALL DATA") { showToast('Phrase must exactly match "DELETE ALL DATA".', "error"); return; }
-    const ok = await showConfirm("This is your last chance to back out. Really wipe all transactional data?");
-    if (!ok) return;
-    const res = await api("System.clearAllData", { pin, confirmation_phrase: phrase, actor_name: state.session.name }, "POST");
-    const el = $("#dangerResult");
+  $("#settPinBtn").addEventListener("click", async () => {
+    const current_pin = $("#settPinOld").value;
+    const new_pin = $("#settPinNew").value;
+    const el = $("#settPinResult");
+    if (!current_pin || !new_pin) { el.innerHTML = `<span style="color:var(--fail)">Both fields are required.</span>`; return; }
+    const res = await api("changeOwnPin", { current_pin, new_pin }, "POST");
     if (res.success) {
-      el.innerHTML = `<div class="px-3 py-2 rounded badge-pass">Cleared: ${res.data.cleared.join(", ")}</div>`;
-      showToast("Transactional data wiped.", "success");
+      el.innerHTML = `<span style="color:var(--pass)">PIN changed.</span>`;
+      showToast("PIN changed successfully.", "success");
+      $("#settPinOld").value = ""; $("#settPinNew").value = "";
     } else {
-      el.innerHTML = `<div class="px-3 py-2 rounded badge-fail">${esc(res.error)}</div>`;
+      el.innerHTML = `<span style="color:var(--fail)">${esc(res.error)}</span>`;
     }
   });
+
+  $("#settWhatsappSaveBtn").addEventListener("click", () => {
+    localStorage.setItem(LS_WHATSAPP_KEY, $("#settWhatsapp").value.trim());
+    showToast("WhatsApp number saved.", "success");
+  });
+
+  if (isAdmin) {
+    $("#settReconnectBtn").addEventListener("click", () => {
+      $("#appShell").classList.add("force-hidden");
+      $("#setupUrlInput").value = state.apiUrl;
+      $("#setupGate").classList.remove("force-hidden");
+    });
+
+    $("#dangerSubmitBtn").addEventListener("click", async () => {
+      const pin = $("#dangerPin").value;
+      const phrase = $("#dangerPhrase").value;
+      if (phrase !== "DELETE ALL DATA") { showToast('Phrase must exactly match "DELETE ALL DATA".', "error"); return; }
+      const ok = await showConfirm("This is your last chance to back out. Really wipe all transactional data?");
+      if (!ok) return;
+      const res = await api("System.clearAllData", { pin, confirmation_phrase: phrase, actor_name: state.session.name }, "POST");
+      const el = $("#dangerResult");
+      if (res.success) {
+        el.innerHTML = `<div class="px-3 py-2 rounded badge-pass">Cleared: ${res.data.cleared.join(", ")}</div>`;
+        showToast("Transactional data wiped.", "success");
+      } else {
+        el.innerHTML = `<div class="px-3 py-2 rounded badge-fail">${esc(res.error)}</div>`;
+      }
+    });
+  }
 }
 
 /* =================================================================
