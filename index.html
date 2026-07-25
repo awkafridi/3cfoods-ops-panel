@@ -17,17 +17,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root, [data-theme="dark"]{
-    --bg:#191b19; --surface:#232622; --surface2:#2c2f29; --line:#3c4038;
-    --accent:#e8a23a; --accent-soft:#f0b055; --accent-dim:#8c6321; --pass:#5fa776; --fail:#c1483b;
-    --text:#ede9e1; --text-muted:#9b9c93;
-    --shadow-sm:0 1px 2px rgba(0,0,0,0.3); --shadow-md:0 4px 16px rgba(0,0,0,0.35); --shadow-lg:0 12px 32px rgba(0,0,0,0.45);
+    --bg:#17131f; --surface:#221c30; --surface2:#2b2440; --line:#3d3454;
+    --accent:#ff8a3d; --accent-soft:#ffab6b; --accent-dim:#a8501f; --pass:#2dd4bf; --fail:#ff5470;
+    --text:#f1ecf9; --text-muted:#a89dc4;
+    --shadow-sm:0 1px 2px rgba(0,0,0,0.35); --shadow-md:0 4px 18px rgba(0,0,0,0.4); --shadow-lg:0 14px 36px rgba(0,0,0,0.5);
     --scheme:dark;
   }
   [data-theme="light"]{
-    --bg:#f3f0e8; --surface:#ffffff; --surface2:#f6f3ec; --line:#e2ddce;
-    --accent:#c9791b; --accent-soft:#e08b28; --accent-dim:#e9c07e; --pass:#2f7d4c; --fail:#a63326;
-    --text:#242621; --text-muted:#726f63;
-    --shadow-sm:0 1px 2px rgba(30,25,10,0.06); --shadow-md:0 4px 16px rgba(30,25,10,0.08); --shadow-lg:0 16px 40px rgba(30,25,10,0.12);
+    --bg:#faf6f0; --surface:#ffffff; --surface2:#f6ede1; --line:#e9dccb;
+    --accent:#e8672c; --accent-soft:#f08650; --accent-dim:#f0c19f; --pass:#0f9488; --fail:#d1364f;
+    --text:#2a1f3d; --text-muted:#7a6f8f;
+    --shadow-sm:0 1px 2px rgba(40,20,10,0.06); --shadow-md:0 4px 16px rgba(40,20,10,0.08); --shadow-lg:0 16px 40px rgba(40,20,10,0.12);
     --scheme:light;
   }
   *{box-sizing:border-box;}
@@ -38,15 +38,20 @@
   body::before{
     content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
     background:
-      radial-gradient(650px circle at 8% 8%, rgba(232,162,58,0.14), transparent 60%),
-      radial-gradient(550px circle at 92% 15%, rgba(95,167,118,0.10), transparent 60%),
-      radial-gradient(600px circle at 50% 100%, rgba(193,72,59,0.06), transparent 60%);
+      radial-gradient(650px circle at 8% 8%, rgba(255,138,61,0.16), transparent 60%),
+      radial-gradient(550px circle at 92% 15%, rgba(45,212,191,0.11), transparent 60%),
+      radial-gradient(600px circle at 50% 100%, rgba(255,84,112,0.08), transparent 60%);
+    animation:blob-drift 22s ease-in-out infinite alternate;
   }
   [data-theme="light"] body::before{
     background:
-      radial-gradient(650px circle at 8% 8%, rgba(201,121,27,0.10), transparent 60%),
-      radial-gradient(550px circle at 92% 15%, rgba(47,125,76,0.08), transparent 60%),
-      radial-gradient(600px circle at 50% 100%, rgba(166,51,38,0.05), transparent 60%);
+      radial-gradient(650px circle at 8% 8%, rgba(232,103,44,0.12), transparent 60%),
+      radial-gradient(550px circle at 92% 15%, rgba(15,148,136,0.09), transparent 60%),
+      radial-gradient(600px circle at 50% 100%, rgba(209,54,79,0.06), transparent 60%);
+  }
+  @keyframes blob-drift{
+    0%{transform:translate(0,0) scale(1);}
+    100%{transform:translate(2%,-2%) scale(1.06);}
   }
   .font-display{font-family:'Space Grotesk',sans-serif;}
   .font-mono{font-family:'IBM Plex Mono',monospace;}
@@ -62,8 +67,8 @@
     background:rgba(255,255,255,0.72); border:1px solid rgba(20,15,5,0.06);
   }
   .card.lift:hover{box-shadow:var(--shadow-md); transform:translateY(-2px);}
-  .badge-pass{background:rgba(95,167,118,0.15); color:var(--pass); border:1px solid rgba(95,167,118,0.35);}
-  .badge-fail{background:rgba(193,72,59,0.15); color:var(--fail); border:1px solid rgba(193,72,59,0.35);}
+  .badge-pass{background:rgba(45,212,191,0.15); color:var(--pass); border:1px solid rgba(45,212,191,0.35);}
+  .badge-fail{background:rgba(255,84,112,0.15); color:var(--fail); border:1px solid rgba(255,84,112,0.35);}
   .badge-warn{background:rgba(232,162,58,0.15); color:var(--accent); border:1px solid rgba(232,162,58,0.35);}
   .btn-accent{background:linear-gradient(155deg, var(--accent-soft), var(--accent)); color:#1a1c1a; box-shadow:var(--shadow-sm); transition:filter .15s ease, transform .1s ease, box-shadow .15s ease;}
   .btn-accent:hover{filter:brightness(1.06); box-shadow:var(--shadow-md);}
@@ -94,6 +99,10 @@
   .accent-bar{width:3px; border-radius:2px; align-self:stretch;}
   .theme-toggle{width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--surface2); border:1px solid var(--line); transition:border-color .15s ease, transform .15s ease;}
   .theme-toggle:hover{border-color:var(--accent); transform:rotate(12deg);}
+  .text-gradient{
+    background:linear-gradient(120deg, var(--accent), var(--pass) 90%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  }
   .icon-btn{width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--surface2); border:1px solid var(--line); transition:border-color .15s ease, color .15s ease; color:var(--text-muted); position:relative;}
   .icon-btn:hover{border-color:var(--accent); color:var(--accent);}
   .icon-btn svg{width:18px; height:18px;}
@@ -215,7 +224,7 @@
       <div class="flex items-center gap-2">
         <div class="w-9 h-9 rounded badge-key flex items-center justify-center font-display font-bold" style="color:var(--accent)">3C</div>
         <div>
-          <div class="font-display font-semibold leading-tight">3C Foods</div>
+          <div class="font-display font-semibold leading-tight text-gradient">3C Foods</div>
           <div class="text-xs text-[var(--text-muted)] leading-tight">Executive Ops Panel</div>
         </div>
       </div>
@@ -266,7 +275,7 @@
     <div class="p-4 flex items-center gap-2 border-b border-[var(--line)]">
       <div class="w-8 h-8 rounded badge-key flex items-center justify-center font-display font-bold text-sm" style="color:var(--accent)">3C</div>
       <div>
-        <div class="font-display font-semibold text-sm leading-tight">3C Foods</div>
+        <div class="font-display font-semibold text-sm leading-tight text-gradient">3C Foods</div>
         <div class="text-[10px] text-[var(--text-muted)] leading-tight">Central Ops</div>
       </div>
     </div>
@@ -288,7 +297,7 @@
         <button id="mobileNavToggle" class="mobile-nav-toggle icon-btn" title="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
         </button>
-        <h2 id="pageTitle" class="font-display text-lg font-semibold"></h2>
+        <h2 id="pageTitle" class="font-display text-lg font-semibold text-gradient"></h2>
       </div>
       <div class="flex items-center gap-2 md:gap-3">
         <span id="campusScopeBadge" class="hidden text-xs font-mono px-2 py-1 rounded badge-warn"></span>
@@ -866,8 +875,8 @@ function renderTrendChart(sales, expenses) {
     data: {
       labels: dates.length ? dates : ["No data yet"],
       datasets: [
-        { label: "Revenue", data: dates.map(d => byDate[d].rev), borderColor: "#5fa776", backgroundColor: "rgba(95,167,118,0.15)", tension: 0.3, fill: true },
-        { label: "Expenses", data: dates.map(d => byDate[d].exp), borderColor: "#c1483b", backgroundColor: "rgba(193,72,59,0.15)", tension: 0.3, fill: true }
+        { label: "Revenue", data: dates.map(d => byDate[d].rev), borderColor: "#2dd4bf", backgroundColor: "rgba(45,212,191,0.15)", tension: 0.3, fill: true },
+        { label: "Expenses", data: dates.map(d => byDate[d].exp), borderColor: "#ff5470", backgroundColor: "rgba(255,84,112,0.15)", tension: 0.3, fill: true }
       ]
     },
     options: {
@@ -1849,7 +1858,7 @@ async function renderSettings() {
       <button id="settReconnectBtn" class="btn-ghost rounded px-4 py-2 text-sm font-medium">Reconnect / Change Backend URL</button>
     </div>
 
-    <div class="card p-5 max-w-lg" style="border-color:rgba(193,72,59,0.4)">
+    <div class="card p-5 max-w-lg" style="border-color:rgba(255,84,112,0.4)">
       <h3 class="font-display font-semibold text-sm mb-2" style="color:var(--fail)">Danger Zone — Clear All Transactional Data</h3>
       <p class="text-xs text-[var(--text-muted)] mb-4">
         Permanently wipes Sales, Inventory Ledger, POS Audit, Expenses, Hygiene Checklist, Attendance, Wastage,
